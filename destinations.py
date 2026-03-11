@@ -22,4 +22,6 @@ CONFIDENCE_THRESHOLD = 0.5
 NMS_THRESHOLD = 0.3
 
 # Obstacle avoidance objects
+# NOTE: This is overridden by config.json in drone_control.py
+# All 103 obstacle classes from obstacles.names are loaded automatically
 OBSTACLE_OBJECTS = ['UMBRELLA', 'PERSON', 'CAR', 'TRUCK', 'BICYCLE']

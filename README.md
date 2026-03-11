@@ -17,7 +17,7 @@ This project implements obstacle avoidance, image recognition, and autonomous GP
 
 ## Requirements
 - Python libraries: opencv-python, numpy, picamera2, pymavlink, smbus (for I2C compass)
-- YOLOv3 files: coco.names, yolov3.cfg, yolov3.weights
+- YOLOv3 files: obstacles.names, yolov3.cfg, yolov3.weights
 - iNAV firmware on F405 flight controller
 
 ## Setup

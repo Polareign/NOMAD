@@ -5,8 +5,74 @@ from pymavlink import mavutil
 import time
 import smbus
 import math
+import json
+import os
 import SkeletonYolo as sy
-from destinations import DESTINATIONS, TAKEOFF_ALTITUDE, FLIGHT_SPEED, YAW_SENSITIVITY, OBSTACLE_TURN_RATE, OBSTACLE_OBJECTS
+from web_server import start_server_background
+
+# Load configuration from config.json
+def load_config():
+    """Load configuration from JSON file"""
+    if os.path.exists('config.json'):
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    # Fallback: load all classes from obstacles.names
+    obstacle_objects = []
+    if os.path.exists('obstacles.names'):
+        with open('obstacles.names', 'r') as f:
+            obstacle_objects = [line.strip() for line in f.readlines() if line.strip()]
+    from destinations import DESTINATIONS, TAKEOFF_ALTITUDE, FLIGHT_SPEED, YAW_SENSITIVITY, OBSTACLE_TURN_RATE
+    return {
+        'destinations': {k: {'latitude': v[0], 'longitude': v[1]} for k, v in DESTINATIONS.items()},
+        'flight_parameters': {
+            'takeoff_altitude': TAKEOFF_ALTITUDE,
+            'flight_speed': FLIGHT_SPEED,
+            'yaw_sensitivity': YAW_SENSITIVITY,
+            'obstacle_turn_rate': OBSTACLE_TURN_RATE
+        },
+        'obstacle_objects': obstacle_objects
+    }
+
+# Load initial configuration
+config_data = load_config()
+DESTINATIONS = {k: (v['latitude'], v['longitude']) for k, v in config_data.get('destinations', {}).items()}
+TAKEOFF_ALTITUDE = config_data.get('flight_parameters', {}).get('takeoff_altitude', 5)
+FLIGHT_SPEED = config_data.get('flight_parameters', {}).get('flight_speed', 1.0)
+YAW_SENSITIVITY = config_data.get('flight_parameters', {}).get('yaw_sensitivity', 0.01)
+OBSTACLE_TURN_RATE = config_data.get('flight_parameters', {}).get('obstacle_turn_rate', 0.5)
+# Load all obstacle objects, fallback to loading from obstacles.names file if needed
+OBSTACLE_OBJECTS = config_data.get('obstacle_objects', [])
+if not OBSTACLE_OBJECTS and os.path.exists('obstacles.names'):
+    with open('obstacles.names', 'r') as f:
+        OBSTACLE_OBJECTS = [line.strip() for line in f.readlines() if line.strip()]
+
+# Start web server in background
+print("Starting web server on port 5000...")
+print("Access the web interface at: http://<your-raspberry-pi-ip>:5000")
+start_server_background('0.0.0.0', 5000)
+
+def reload_config():
+    """Reload configuration from config.json (call periodically to pick up web changes)"""
+    global config_data, DESTINATIONS, TAKEOFF_ALTITUDE, FLIGHT_SPEED, YAW_SENSITIVITY, OBSTACLE_TURN_RATE, OBSTACLE_OBJECTS
+    if os.path.exists('config.json'):
+        with open('config.json', 'r') as f:
+            config_data = json.load(f)
+            DESTINATIONS = {k: (v['latitude'], v['longitude']) for k, v in config_data.get('destinations', {}).items()}
+            TAKEOFF_ALTITUDE = config_data.get('flight_parameters', {}).get('takeoff_altitude', 5)
+            FLIGHT_SPEED = config_data.get('flight_parameters', {}).get('flight_speed', 1.0)
+            YAW_SENSITIVITY = config_data.get('flight_parameters', {}).get('yaw_sensitivity', 0.01)
+            OBSTACLE_TURN_RATE = config_data.get('flight_parameters', {}).get('obstacle_turn_rate', 0.5)
+            OBSTACLE_OBJECTS = config_data.get('obstacle_objects', [])
+            # Fallback to obstacles.names if config doesn't have obstacles
+            if not OBSTACLE_OBJECTS and os.path.exists('obstacles.names'):
+                with open('obstacles.names', 'r') as f:
+                    OBSTACLE_OBJECTS = [line.strip() for line in f.readlines() if line.strip()]
+
+def is_obstacle_detected(detected_list):
+    """Check if any detected object matches obstacle list (case-insensitive)"""
+    detected_lower = [obj.lower() for obj in detected_list]
+    obstacles_lower = [obj.lower() for obj in OBSTACLE_OBJECTS]
+    return any(obj in obstacles_lower for obj in detected_lower)
 
 # Initialize Pi Camera
 picam2 = Picamera2()
@@ -114,7 +180,7 @@ def navigate_to_destination(target_lat, target_lon):
         img = picam2.capture_array()
         detected = yolo.findObjects(img)
         
-        obstacle_detected = any(obj in detected for obj in OBSTACLE_OBJECTS)
+        obstacle_detected = is_obstacle_detected(detected)
         
         if obstacle_detected:
             set_velocity(0, 0, 0, OBSTACLE_TURN_RATE)  # Turn
@@ -140,7 +206,7 @@ try:
         detected_objects = yolo.findObjects(img)
         
         # Check if any obstacle detected
-        obstacle_detected = any(obj in detected_objects for obj in OBSTACLE_OBJECTS)
+        obstacle_detected = is_obstacle_detected(detected_objects)
         
         if obstacle_detected:
             set_velocity(0, 0, 0, OBSTACLE_TURN_RATE)  # Turn right

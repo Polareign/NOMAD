@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 class SkeletonYolo:
-    def __init__(self, classesFile='coco.names', modelConfiguration='yolov3.cfg', modelWeights='yolov3.weights',
+    def __init__(self, classesFile='obstacles.names', modelConfiguration='yolov3.cfg', modelWeights='yolov3.weights',
                  whT=320, confThreshold=0.5, nmsThreshold=0.3):
         self.whT = whT
         self.confThreshold = confThreshold

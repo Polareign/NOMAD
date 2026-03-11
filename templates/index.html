@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 30px;
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+        
+        h2 {
+            color: #667eea;
+            font-size: 20px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #ff5252;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .destination-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .destination-item h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .destination-item p {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 3px;
+        }
+        
+        .destination-item .coords {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 12px;
+            margin-top: 5px;
+            font-family: monospace;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab-btn {
+            padding: 10px 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: #666;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            transform: scale(1.1) rotate(90deg);
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                border-radius: 0;
+                max-height: 100vh;
+                padding: 20px;
+            }
+            
+            .refresh-btn {
+                bottom: 20px;
+                right: 20px;
+                width: 55px;
+                height: 55px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚁 Drone Config</h1>
+        
+        <div id="status-message"></div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('destinations')">Destinations</button>
+            <button class="tab-btn" onclick="switchTab('home')">Home</button>
+            <button class="tab-btn" onclick="switchTab('parameters')">Parameters</button>
+        </div>
+        
+        <!-- Destinations Tab -->
+        <div id="destinations" class="tab-content active">
+            <h2>Destinations</h2>
+            
+            <div class="section">
+                <h3 style="color: #555; font-size: 16px; margin-bottom: 15px;">Current Destinations</h3>
+                <div id="destinations-list"></div>
+            </div>
+            
+            <div class="section">
+                <h3 style="color: #555; font-size: 16px; margin-bottom: 15px;">Add/Edit Destination</h3>
+                <div class="form-group">
+                    <label>Destination ID</label>
+                    <input type="text" id="destId" placeholder="e.g., A, B, C">
+                </div>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="destName" placeholder="e.g., Base Camp">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="destDesc" placeholder="e.g., North field">
+                </div>
+                <div class="form-group">
+                    <label>Latitude</label>
+                    <input type="number" id="destLat" placeholder="e.g., 40.7128" step="0.0001">
+                </div>
+                <div class="form-group">
+                    <label>Longitude</label>
+                    <input type="number" id="destLng" placeholder="e.g., -74.0060" step="0.0001">
+                </div>
+                <button class="btn-primary" onclick="saveDestination()">Save Destination</button>
+            </div>
+        </div>
+        
+        <!-- Home Tab -->
+        <div id="home" class="tab-content">
+            <h2>Home Location</h2>
+            
+            <div class="section">
+                <div id="home-display"></div>
+            </div>
+            
+            <div class="section">
+                <div class="form-group">
+                    <label>Home Latitude</label>
+                    <input type="number" id="homeLat" placeholder="e.g., 40.7128" step="0.0001">
+                </div>
+                <div class="form-group">
+                    <label>Home Longitude</label>
+                    <input type="number" id="homeLng" placeholder="e.g., -74.0060" step="0.0001">
+                </div>
+                <button class="btn-primary" onclick="saveHome()">Update Home</button>
+                <button class="btn-secondary" onclick="useCurrentLocation()">Use Current Location</button>
+            </div>
+        </div>
+        
+        <!-- Parameters Tab -->
+        <div id="parameters" class="tab-content">
+            <h2>Flight Parameters</h2>
+            
+            <div class="section">
+                <div class="form-group">
+                    <label>Takeoff Altitude (m)</label>
+                    <input type="number" id="takeoffAlt" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Flight Speed (m/s)</label>
+                    <input type="number" id="flightSpeed" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Yaw Sensitivity</label>
+                    <input type="number" id="yawSens" step="0.001">
+                </div>
+                <div class="form-group">
+                    <label>Obstacle Turn Rate</label>
+                    <input type="number" id="obstacleTurn" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Confidence Threshold</label>
+                    <input type="number" id="confThresh" min="0" max="1" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>NMS Threshold</label>
+                    <input type="number" id="nmsThresh" min="0" max="1" step="0.01">
+                </div>
+                <button class="btn-primary" onclick="saveParameters()">Save Parameters</button>
+            </div>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="refreshAll()" title="Refresh All Data">⟳</button>
+    
+    <script>
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+        
+        function loadDestinations() {
+            fetch('/api/destinations')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('destinations-list');
+                    list.innerHTML = '';
+                    
+                    for (const [id, dest] of Object.entries(data)) {
+                        const div = document.createElement('div');
+                        div.className = 'destination-item';
+                        div.innerHTML = `
+                            <h3>${dest.name || id}</h3>
+                            <p>${dest.description || ''}</p>
+                            <div class="coords">Lat: ${dest.latitude.toFixed(4)} | Lng: ${dest.longitude.toFixed(4)}</div>
+                            ${id !== 'home' ? `<button class="btn-danger" style="margin-top: 10px; width: 100%;" onclick="deleteDestination('${id}')">Delete</button>` : ''}
+                        `;
+                        list.appendChild(div);
+                    }
+                })
+                .catch(error => showStatus('Error loading destinations: ' + error, 'error'));
+        }
+        
+        function loadHome() {
+            fetch('/api/home')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('homeLat').value = data.latitude || '';
+                    document.getElementById('homeLng').value = data.longitude || '';
+                    
+                    const display = document.getElementById('home-display');
+                    display.innerHTML = `
+                        <div class="destination-item">
+                            <h3>Current Home Location</h3>
+                            <div class="coords">Lat: ${(data.latitude || 0).toFixed(4)} | Lng: ${(data.longitude || 0).toFixed(4)}</div>
+                        </div>
+                    `;
+                })
+                .catch(error => showStatus('Error loading home: ' + error, 'error'));
+        }
+        
+        function loadParameters() {
+            fetch('/api/flight-parameters')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('takeoffAlt').value = data.takeoff_altitude || '';
+                    document.getElementById('flightSpeed').value = data.flight_speed || '';
+                    document.getElementById('yawSens').value = data.yaw_sensitivity || '';
+                    document.getElementById('obstacleTurn').value = data.obstacle_turn_rate || '';
+                    document.getElementById('confThresh').value = data.confidence_threshold || '';
+                    document.getElementById('nmsThresh').value = data.nms_threshold || '';
+                })
+                .catch(error => showStatus('Error loading parameters: ' + error, 'error'));
+        }
+        
+        function saveDestination() {
+            const data = {
+                id: document.getElementById('destId').value,
+                name: document.getElementById('destName').value,
+                description: document.getElementById('destDesc').value,
+                latitude: parseFloat(document.getElementById('destLat').value),
+                longitude: parseFloat(document.getElementById('destLng').value)
+            };
+            
+            if (!data.id || isNaN(data.latitude) || isNaN(data.longitude)) {
+                showStatus('Please fill in all required fields correctly', 'error');
+                return;
+            }
+            
+            fetch('/api/destinations', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    showStatus('Destination saved successfully!', 'success');
+                    document.getElementById('destId').value = '';
+                    document.getElementById('destName').value = '';
+                    document.getElementById('destDesc').value = '';
+                    document.getElementById('destLat').value = '';
+                    document.getElementById('destLng').value = '';
+                    loadDestinations();
+                })
+                .catch(error => showStatus('Error saving destination: ' + error, 'error'));
+        }
+        
+        function deleteDestination(id) {
+            if (confirm(`Delete destination ${id}?`)) {
+                fetch(`/api/destinations/${id}`, {method: 'DELETE'})
+                    .then(response => response.json())
+                    .then(data => {
+                        showStatus('Destination deleted!', 'success');
+                        loadDestinations();
+                    })
+                    .catch(error => showStatus('Error deleting destination: ' + error, 'error'));
+            }
+        }
+        
+        function saveHome() {
+            const data = {
+                latitude: parseFloat(document.getElementById('homeLat').value),
+                longitude: parseFloat(document.getElementById('homeLng').value)
+            };
+            
+            if (isNaN(data.latitude) || isNaN(data.longitude)) {
+                showStatus('Please enter valid coordinates', 'error');
+                return;
+            }
+            
+            fetch('/api/home', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    showStatus('Home location updated!', 'success');
+                    loadHome();
+                })
+                .catch(error => showStatus('Error updating home: ' + error, 'error'));
+        }
+        
+        function saveParameters() {
+            const data = {
+                takeoff_altitude: parseFloat(document.getElementById('takeoffAlt').value),
+                flight_speed: parseFloat(document.getElementById('flightSpeed').value),
+                yaw_sensitivity: parseFloat(document.getElementById('yawSens').value),
+                obstacle_turn_rate: parseFloat(document.getElementById('obstacleTurn').value),
+                confidence_threshold: parseFloat(document.getElementById('confThresh').value),
+                nms_threshold: parseFloat(document.getElementById('nmsThresh').value)
+            };
+            
+            fetch('/api/flight-parameters', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    showStatus('Flight parameters updated!', 'success');
+                    loadParameters();
+                })
+                .catch(error => showStatus('Error updating parameters: ' + error, 'error'));
+        }
+        
+        function useCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        document.getElementById('homeLat').value = position.coords.latitude.toFixed(6);
+                        document.getElementById('homeLng').value = position.coords.longitude.toFixed(6);
+                        showStatus('Location fetched! Click "Update Home" to save.', 'info');
+                    },
+                    (error) => {
+                        showStatus('Error getting location: ' + error.message, 'error');
+                    }
+                );
+            } else {
+                showStatus('Geolocation not supported', 'error');
+            }
+        }
+        
+        function refreshAll() {
+            loadDestinations();
+            loadHome();
+            loadParameters();
+            showStatus('Data refreshed!', 'success');
+        }
+        
+        // Load data on page load
+        window.addEventListener('load', () => {
+            refreshAll();
+        });
+    </script>
+</body>
+</html>
