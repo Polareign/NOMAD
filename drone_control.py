@@ -48,7 +48,7 @@ if not OBSTACLE_OBJECTS and os.path.exists('obstacles.names'):
 
 # Start web server in background
 print("Starting web server on port 5000...")
-print("Access the web interface at: http://209.122.38.78:5000")
+print("Access the web interface at: http://10.33.138.40:5000")
 start_server_background('0.0.0.0', 5000)
 
 def reload_config():
