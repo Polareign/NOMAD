@@ -48,7 +48,7 @@ if not OBSTACLE_OBJECTS and os.path.exists('obstacles.names'):
 
 # Start web server in background
 print("Starting web server on port 5000...")
-print("Access the web interface at: http://<your-raspberry-pi-ip>:5000")
+print("Access the web interface at: http://209.122.38.78:5000")
 start_server_background('0.0.0.0', 5000)
 
 def reload_config():
@@ -153,11 +153,7 @@ def set_velocity(vx, vy, vz, yaw_rate):
 
 def get_gps():
     msg = master.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=1)
-    if msg:
-        lat = msg.lat / 1e7
-        lon = msg.lon / 1e7
-        return lat, lon
-    return 0, 0
+    return (msg.lat / 1e7, msg.lon / 1e7) if msg else (0, 0)
 
 def navigate_to_destination(target_lat, target_lon):
     while True:
@@ -179,10 +175,8 @@ def navigate_to_destination(target_lat, target_lon):
         # Check for obstacles
         img = picam2.capture_array()
         detected = yolo.findObjects(img)
-        
-        obstacle_detected = is_obstacle_detected(detected)
-        
-        if obstacle_detected:
+
+        if obstacle_detected := is_obstacle_detected(detected):
             set_velocity(0, 0, 0, OBSTACLE_TURN_RATE)  # Turn
             time.sleep(1)
         else:

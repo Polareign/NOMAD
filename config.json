@@ -1,28 +1,10 @@
 {
   "destinations": {
-    "A": {
-      "name": "Destination A",
-      "latitude": 37.7749,
-      "longitude": -122.4194,
-      "description": "San Francisco"
-    },
-    "B": {
-      "name": "Destination B",
-      "latitude": 34.0522,
-      "longitude": -118.2437,
-      "description": "Los Angeles"
-    },
     "home": {
       "name": "Home",
-      "latitude": 40.7128,
-      "longitude": -74.006,
+      "latitude": 42.077535,
+      "longitude": -87.817849,
       "description": "Home Location"
-    },
-    "base": {
-      "name": "Base",
-      "latitude": 51.5074,
-      "longitude": -0.1278,
-      "description": "London"
     }
   },
   "flight_parameters": {

@@ -71,7 +71,7 @@ def create_destination():
 @app.route('/api/destinations/<dest_id>', methods=['DELETE'])
 def delete_destination(dest_id):
     """Delete a destination"""
-    if dest_id == 'home':  # Protect home location from deletion
+    if dest_id == 'home':
         return jsonify({'error': 'Cannot delete home location'}), 403
     
     config = load_config()
@@ -124,7 +124,6 @@ def update_flight_parameters():
     if 'flight_parameters' not in config:
         config['flight_parameters'] = {}
     
-    # Update only provided fields
     for key in ['takeoff_altitude', 'flight_speed', 'yaw_sensitivity', 'obstacle_turn_rate', 'confidence_threshold', 'nms_threshold']:
         if key in data:
             config['flight_parameters'][key] = float(data[key])
