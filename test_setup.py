@@ -51,21 +51,38 @@ except ImportError:
     print("SMBus not installed")
     tests.append(False)
 
-# Test YOLO files
+# Test YOLO files and configuration
 import os
-yolo_files = ['obstacles.names', 'yolov3.cfg', 'yolov3.weights']
-for file in yolo_files:
-    if os.path.exists(file):
-        print(f"{file} found")
-        tests.append(True)
-    else:
-        print(f"{file} missing")
-        tests.append(False)
+
+config_ok = False
+if os.path.exists('config.json'):
+    try:
+        import json
+        with open('config.json', 'r') as f:
+            data = json.load(f)
+            if data.get('obstacle_objects'):
+                print('config.json has obstacle_objects configured')
+                tests.append(True)
+                config_ok = True
+    except json.JSONDecodeError:
+        print('config.json exists but could not be parsed')
+
+if not config_ok:
+    yolo_files = ['obstacles.names', 'yolov3.cfg', 'yolov3.weights']
+    for file in yolo_files:
+        if os.path.exists(file):
+            print(f"{file} found")
+            tests.append(True)
+        else:
+            print(f"{file} missing")
+            tests.append(False)
 
 print(f"\n=== Summary: {sum(tests)}/{len(tests)} tests passed ===")
 
 if all(tests):
     print("All basic tests passed! Ready for hardware testing.")
 else:
-    print("Some components missing. Install with: pip install -r requirements.txt")
-    print("Download missing YOLO files as per README.")
+    print("Some components are missing.")
+    if not config_ok:
+        print("Download missing YOLO files as per README or configure obstacle_objects in config.json.")
+    print("Install Python dependencies with: pip install -r requirements.txt")
