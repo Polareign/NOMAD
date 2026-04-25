@@ -124,7 +124,7 @@ def update_flight_parameters():
     if 'flight_parameters' not in config:
         config['flight_parameters'] = {}
     
-    for key in ['takeoff_altitude', 'flight_speed', 'yaw_sensitivity', 'obstacle_turn_rate', 'confidence_threshold', 'nms_threshold']:
+    for key in ['takeoff_altitude', 'flight_speed', 'yaw_sensitivity', 'obstacle_turn_rate', 'confidence_threshold']:
         if key in data:
             config['flight_parameters'][key] = float(data[key])
     

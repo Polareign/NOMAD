@@ -30,9 +30,6 @@ except ImportError:
     smbus = None
 
 DEFAULT_CONFIG_FILE = 'config.json'
-DEFAULT_CLASSES_FILE = 'obstacles.names'
-DEFAULT_MODEL_CFG = 'yolov3.cfg'
-DEFAULT_MODEL_WEIGHTS = 'yolov3.weights'
 DEFAULT_SERVER_PORT = 5000
 
 logger = logging.getLogger(__name__)
@@ -52,7 +49,7 @@ def parse_args():
 
 
 def load_config(config_file=DEFAULT_CONFIG_FILE):
-    """Load configuration from JSON file with fallback to destinations.py."""
+    """Load configuration from JSON file."""
     if os.path.exists(config_file):
         try:
             with open(config_file, 'r') as f:
@@ -62,11 +59,6 @@ def load_config(config_file=DEFAULT_CONFIG_FILE):
 
     from destinations import DESTINATIONS, TAKEOFF_ALTITUDE, FLIGHT_SPEED, YAW_SENSITIVITY, OBSTACLE_TURN_RATE
 
-    obstacle_objects = []
-    if os.path.exists(DEFAULT_CLASSES_FILE):
-        with open(DEFAULT_CLASSES_FILE, 'r') as f:
-            obstacle_objects = [line.strip() for line in f if line.strip()]
-
     return {
         'destinations': {k: {'latitude': v[0], 'longitude': v[1]} for k, v in DESTINATIONS.items()},
         'flight_parameters': {
@@ -75,9 +67,8 @@ def load_config(config_file=DEFAULT_CONFIG_FILE):
             'yaw_sensitivity': YAW_SENSITIVITY,
             'obstacle_turn_rate': OBSTACLE_TURN_RATE,
             'confidence_threshold': 0.5,
-            'nms_threshold': 0.3,
         },
-        'obstacle_objects': obstacle_objects,
+        'obstacle_objects': [],
     }
 
 
@@ -287,18 +278,13 @@ def run_main():
     yaw_sensitivity = float(parameters.get('yaw_sensitivity', 0.01))
     obstacle_turn_rate = float(parameters.get('obstacle_turn_rate', 0.5))
     confidence_threshold = float(parameters.get('confidence_threshold', 0.5))
-    nms_threshold = float(parameters.get('nms_threshold', 0.3))
 
     if not args.no_server:
         logger.info('Starting web server on port %s', args.port)
         start_server_background('0.0.0.0', args.port)
 
     yolo = sy.SkeletonYolo(
-        classesFile=DEFAULT_CLASSES_FILE,
-        modelConfiguration=DEFAULT_MODEL_CFG,
-        modelWeights=DEFAULT_MODEL_WEIGHTS,
         confThreshold=confidence_threshold,
-        nmsThreshold=nms_threshold,
         classes=obstacle_objects if obstacle_objects else None,
     )
 

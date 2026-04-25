@@ -12,8 +12,7 @@
     "flight_speed": 1.0,
     "yaw_sensitivity": 0.01,
     "obstacle_turn_rate": 0.5,
-    "confidence_threshold": 0.5,
-    "nms_threshold": 0.3
+    "confidence_threshold": 0.5
   },
   "obstacle_objects": [
     "person",
@@ -95,29 +94,6 @@
     "scissors",
     "teddy bear",
     "hair drier",
-    "toothbrush",
-    "door",
-    "window",
-    "wall",
-    "floor",
-    "ceiling",
-    "staircase",
-    "table",
-    "desk",
-    "cabinet",
-    "shelves",
-    "closet",
-    "bathroom",
-    "kitchen",
-    "bedroom",
-    "livingroom",
-    "obstacle",
-    "railing",
-    "tree",
-    "gras",
-    "sand",
-    "water",
-    "sky",
-    "clouds"
+    "toothbrush"
   ]
 }

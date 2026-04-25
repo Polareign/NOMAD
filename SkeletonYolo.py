@@ -1,98 +1,88 @@
 import cv2
-import numpy as np
-import os
 import logging
+from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
 
 class SkeletonYolo:
-    DEFAULT_CLASSES = [
-        'person', 'bicycle', 'car', 'motorbike', 'aeroplane', 'bus', 'train', 'truck', 'boat',
-        'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
-        'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
-        'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
-        'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
-        'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
-        'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
-        'sofa', 'pottedplant', 'bed', 'diningtable', 'toilet', 'tvmonitor', 'laptop', 'mouse',
-        'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator',
-        'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-    ]
-
-    def __init__(self, classesFile='obstacles.names', modelConfiguration='yolov3.cfg', modelWeights='yolov3.weights',
-                 whT=320, confThreshold=0.5, nmsThreshold=0.3, classes=None):
-        self.whT = whT
+    def __init__(self, confThreshold=0.5, classes=None):
+        """
+        Initialize YOLO11n model for object detection.
+        
+        Args:
+            confThreshold: Confidence threshold for detections (default 0.5)
+            classes: List of obstacle classes to detect (optional, uses YOLO defaults)
+        """
         self.confThreshold = confThreshold
-        self.nmsThreshold = nmsThreshold
+        self.model = None
+        self.classNames = classes if classes is not None else self._get_default_coco_classes()
+        
+        try:
+            # Load YOLO11n model (automatically downloads if not present)
+            self.model = YOLO('yolo11n.pt')
+            self.model.conf = confThreshold
+            logger.info('YOLO11n model loaded successfully')
+        except Exception as exc:
+            logger.error('Failed to load YOLO11n model: %s', exc)
+            self.model = None
 
-        if classes is not None:
-            self.classNames = [str(c).strip() for c in classes if str(c).strip()]
-        elif os.path.exists(classesFile):
-            with open(classesFile, 'rt') as f:
-                self.classNames = [line.strip() for line in f if line.strip()]
-        else:
-            self.classNames = self.DEFAULT_CLASSES.copy()
-            logger.warning(
-                'YOLO class list file not found (%s). Falling back to default COCO class names.', classesFile)
-
-        self.net = None
-        if os.path.exists(modelConfiguration) and os.path.exists(modelWeights):
-            try:
-                self.net = cv2.dnn.readNetFromDarknet(modelConfiguration, modelWeights)
-                self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-            except cv2.error as exc:
-                logger.warning('Failed to load YOLO network: %s', exc)
-                self.net = None
-        else:
-            logger.warning(
-                'YOLO config or weights missing. Expected %s and %s.', modelConfiguration, modelWeights)
+    @staticmethod
+    def _get_default_coco_classes():
+        """Return default COCO class names."""
+        return [
+            'person', 'bicycle', 'car', 'motorbike', 'aeroplane', 'bus', 'train', 'truck', 'boat',
+            'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+            'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
+            'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
+            'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+            'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+            'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+            'sofa', 'pottedplant', 'bed', 'diningtable', 'toilet', 'tvmonitor', 'laptop', 'mouse',
+            'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator',
+            'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+        ]
 
     def findObjects(self, img):
-        if self.net is None:
+        """
+        Detect objects in image using YOLO11n.
+        
+        Args:
+            img: Input image (BGR or RGB)
+            
+        Returns:
+            List of detected object class names as strings
+        """
+        if self.model is None or img is None or img.size == 0:
             return []
 
-        if img is None or img.size == 0:
+        try:
+            # Run inference
+            results = self.model(img, verbose=False)
+            
+            detected_objects = []
+            
+            # Process detections
+            for result in results:
+                if result.boxes is not None and len(result.boxes) > 0:
+                    for box in result.boxes:
+                        cls_id = int(box.cls[0])
+                        conf = float(box.conf[0])
+                        
+                        # Filter by confidence threshold
+                        if conf >= self.confThreshold:
+                            # Get class name
+                            class_name = result.names.get(cls_id, f'class_{cls_id}')
+                            detected_objects.append(class_name)
+                            
+                            # Draw bounding box and label on image
+                            x1, y1, x2, y2 = map(int, box.xyxy[0])
+                            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 2)
+                            label = f'{class_name} {int(conf * 100)}%'
+                            cv2.putText(img, label, (x1, y1 - 10), 
+                                      cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
+            
+            return detected_objects
+            
+        except Exception as exc:
+            logger.error('Error during inference: %s', exc)
             return []
-
-        if img.ndim == 3 and img.shape[2] == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-
-        blob = cv2.dnn.blobFromImage(img, 1 / 255, (self.whT, self.whT), [0, 0, 0], 1, crop=False)
-        self.net.setInput(blob)
-
-        layerNames = self.net.getLayerNames()
-        outputNames = [layerNames[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
-        outputs = self.net.forward(outputNames)
-
-        hT, wT = img.shape[:2]
-        bbox = []
-        classIds = []
-        confs = []
-
-        for output in outputs:
-            for det in output:
-                scores = det[5:]
-                classId = int(np.argmax(scores))
-                confidence = float(scores[classId])
-                if confidence > self.confThreshold:
-                    w, h = int(det[2] * wT), int(det[3] * hT)
-                    x, y = int((det[0] * wT) - w / 2), int((det[1] * hT) - h / 2)
-                    bbox.append([x, y, w, h])
-                    classIds.append(classId)
-                    confs.append(confidence)
-
-        if not bbox:
-            return []
-
-        indices = cv2.dnn.NMSBoxes(bbox, confs, self.confThreshold, self.nmsThreshold)
-        detected_objects = []
-        if len(indices) > 0:
-            for i in indices.flatten():
-                x, y, w, h = bbox[i]
-                cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 255), 2)
-                label = self.classNames[classIds[i]].upper() if classIds[i] < len(self.classNames) else 'UNKNOWN'
-                cv2.putText(img, f'{label} {int(confs[i] * 100)}%',
-                            (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
-                detected_objects.append(label)
-        return detected_objects

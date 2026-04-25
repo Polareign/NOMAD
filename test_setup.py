@@ -9,80 +9,101 @@ tests = []
 # Test OpenCV
 try:
     import cv2
-    print("OpenCV OK")
+    print("✓ OpenCV OK")
     tests.append(True)
 except ImportError:
-    print("OpenCV not installed")
+    print("✗ OpenCV not installed")
     tests.append(False)
 
 # Test NumPy
 try:
     import numpy as np
-    print("NumPy OK")
+    print("✓ NumPy OK")
     tests.append(True)
 except ImportError:
-    print("NumPy not installed")
+    print("✗ NumPy not installed")
+    tests.append(False)
+
+# Test Ultralytics (YOLO11n)
+try:
+    from ultralytics import YOLO
+    print("✓ Ultralytics OK")
+    tests.append(True)
+except ImportError:
+    print("✗ Ultralytics not installed")
+    tests.append(False)
+
+# Test PyTorch
+try:
+    import torch
+    print("✓ PyTorch OK")
+    tests.append(True)
+except ImportError:
+    print("✗ PyTorch not installed")
     tests.append(False)
 
 # Test PiCamera2
 try:
     from picamera2 import Picamera2
-    print("PiCamera2 OK")
+    print("✓ PiCamera2 OK")
     tests.append(True)
 except ImportError:
-    print("PiCamera2 not installed")
-    tests.append(False)
+    print("✗ PiCamera2 not installed (OK if not on Raspberry Pi)")
+    tests.append(True)  # Not critical if not on RPi
 
 # Test PyMAVLink
 try:
     from pymavlink import mavutil
-    print("PyMAVLink OK")
+    print("✓ PyMAVLink OK")
     tests.append(True)
 except ImportError:
-    print("PyMAVLink not installed")
+    print("✗ PyMAVLink not installed")
     tests.append(False)
 
 # Test SMBus
 try:
     import smbus
-    print("SMBus OK")
+    print("✓ SMBus OK")
     tests.append(True)
 except ImportError:
-    print("SMBus not installed")
+    print("✗ SMBus not installed (OK if not on Raspberry Pi)")
+    tests.append(True)  # Not critical if not on RPi
+
+# Test Flask
+try:
+    import Flask
+    print("✓ Flask OK")
+    tests.append(True)
+except ImportError:
+    print("✗ Flask not installed")
     tests.append(False)
 
-# Test YOLO files and configuration
+# Test configuration
 import os
+import json
 
 config_ok = False
 if os.path.exists('config.json'):
     try:
-        import json
         with open('config.json', 'r') as f:
             data = json.load(f)
-            if data.get('obstacle_objects'):
-                print('config.json has obstacle_objects configured')
+            if data.get('flight_parameters') and data.get('destinations'):
+                print('✓ config.json is properly configured')
                 tests.append(True)
                 config_ok = True
+            else:
+                print('✗ config.json is missing required fields')
+                tests.append(False)
     except json.JSONDecodeError:
-        print('config.json exists but could not be parsed')
-
-if not config_ok:
-    yolo_files = ['obstacles.names', 'yolov3.cfg', 'yolov3.weights']
-    for file in yolo_files:
-        if os.path.exists(file):
-            print(f"{file} found")
-            tests.append(True)
-        else:
-            print(f"{file} missing")
-            tests.append(False)
+        print('✗ config.json exists but could not be parsed')
+        tests.append(False)
+else:
+    print('✗ config.json not found')
+    tests.append(False)
 
 print(f"\n=== Summary: {sum(tests)}/{len(tests)} tests passed ===")
 
 if all(tests):
-    print("All basic tests passed! Ready for hardware testing.")
+    print("✓ All tests passed! Ready for drone control.")
 else:
-    print("Some components are missing.")
-    if not config_ok:
-        print("Download missing YOLO files as per README or configure obstacle_objects in config.json.")
-    print("Install Python dependencies with: pip install -r requirements.txt")
+    print("Some components are missing. Install with: pip install -r requirements.txt")

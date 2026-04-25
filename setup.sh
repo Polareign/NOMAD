@@ -69,14 +69,23 @@ echo "✓ PyMAVLink installed"
 pip install picamera2
 echo "✓ PiCamera2 installed"
 
+pip install Flask==2.3.3
+echo "✓ Flask installed"
+
+pip install ultralytics==8.0.0
+echo "✓ Ultralytics installed"
+
+pip install torch==2.0.1
+echo "✓ PyTorch installed"
+
 echo ""
 echo "===== Installation Complete ====="
 echo ""
 echo "To use the drone control system:"
 echo "  1. Activate venv: source venv/bin/activate"
-echo "  2. Download YOLO files (see README.md)"
-echo "  3. Configure hardware (GPS, compass, camera)"
-echo "  4. Run: python drone_control.py"
+echo "  2. Configure hardware (GPS, compass, camera)"
+echo "  3. Run: python drone_control.py"
 echo ""
+echo "The YOLO11n model will be automatically downloaded on first run."
 echo "To deactivate venv: deactivate"
 echo ""

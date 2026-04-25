@@ -10,15 +10,16 @@ This project implements obstacle avoidance, image recognition, and autonomous GP
 - Raspberry Pi Camera Module 3 (12MP autofocus)
 
 ## Features
-- Obstacle avoidance using YOLO object detection
+- Real-time obstacle detection using YOLO11n
 - Autonomous navigation to predefined destinations
-- Real-time GPS and compass data
-- Image capture and processing with Raspberry Pi camera
+- Real-time GPS and compass data integration
+- Live image capture and processing with Raspberry Pi camera
+- Web interface for drone configuration
 
 ## Requirements
-- Python libraries: opencv-python, numpy, picamera2, pymavlink, smbus (for I2C compass)
-- YOLOv3 files: obstacles.names, yolov3.cfg, yolov3.weights
+- Python libraries: opencv-python, numpy, picamera2, pymavlink, ultralytics, torch, Flask
 - iNAV firmware on F405 flight controller
+- Internet connection (first run downloads YOLO11n model ~35MB)
 
 ## Setup
 
@@ -26,8 +27,8 @@ This project implements obstacle avoidance, image recognition, and autonomous GP
 ```bash
 bash setup.sh
 source venv/bin/activate
-pip install -r requirements.txt
 python test_setup.py
+python drone_control.py --dry-run
 ```
 
 ### Manual Setup
@@ -53,11 +54,7 @@ python test_setup.py
    python test_setup.py
    ```
 
-5. Download YOLO Files:
-   - yolov3.cfg: https://github.com/pjreddie/darknet/blob/master/cfg/yolov3.cfg
-   - yolov3.weights: https://pjreddie.com/media/files/yolov3.weights
-
-6. Connect hardware:
+5. Connect hardware:
    - GPS to flight controller UART
    - HMC5883L to Raspberry Pi I2C
    - Configure iNAV for MAVLink serial passthrough
@@ -87,7 +84,7 @@ Modify these settings in `destinations.py`:
 - `TAKEOFF_ALTITUDE` = flight height in meters
 - `FLIGHT_SPEED` = forward velocity
 - `OBSTACLE_TURN_RATE` = rotation speed
-- `OBSTACLE_OBJECTS` = objects to avoid (e.g., 'PERSON', 'CAR')
+- `CONFIDENCE_THRESHOLD` = YOLO detection confidence (0.0-1.0)
 
 ### Virtual Environment FAQ
 - **Q: Do I need venv?** 
