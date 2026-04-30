@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 # Setup script for NOMAD drone control system
-# Handles installation on Raspberry Pi 4 with proper dependency management
 
 echo "===== NOMAD Drone Control Setup ====="
 echo ""
@@ -33,7 +32,9 @@ sudo apt-get install -y \
 # Step 3: Create virtual environment (RECOMMENDED)
 echo ""
 echo "Step 3: Setting up Python virtual environment..."
-if [ ! -d "venv" ]; then
+if [ ! -d "venv" ] || [ ! -f "venv/bin/pip" ]; then
+    echo "Creating virtual environment..."
+    rm -rf venv
     python3 -m venv venv
     echo "✓ Virtual environment created"
 else
@@ -63,8 +64,7 @@ echo "===== Installation Complete ====="
 echo ""
 echo "To use the drone control system:"
 echo "  1. Activate venv: source venv/bin/activate"
-echo "  2. Configure hardware (GPS, compass, camera)"
-echo "  3. Run: python drone_control.py"
+echo "  2. Run: python drone_control.py"
 echo ""
 echo "The YOLO11n model will be automatically downloaded on first run."
 echo "To deactivate venv: deactivate"

@@ -1,9 +1,8 @@
---extra-index-url https://download.pytorch.org/whl/cpu
 numpy>=1.26
 opencv-python==4.8.0.74
 pymavlink==2.4.41
 picamera2
-Flask==2.3.3
+flask==2.3.3
 ultralytics==8.0.0
 torch>=2.0.1
 smbus2
