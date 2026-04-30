@@ -1,12 +1,12 @@
 # Custom Drone Autonomous Flight Code
 
-This project implements obstacle avoidance, image recognition, and autonomous GPS flight for a custom drone using Raspberry Pi 4, SpeedyBee F405 V4 flight controller with iNAV, GPS module, HMC5883L compass, and Raspberry Pi Camera Module 3.
+This project implements obstacle avoidance, image recognition, and autonomous GPS flight for a custom drone using Raspberry Pi 4, SpeedyBee F405 V4 flight controller with iNAV, GPS module, QMC5883L compass, and Raspberry Pi Camera Module 3.
 
 ## Hardware
 - Raspberry Pi 4 Model B 4GB
 - SpeedyBee F405 V4 stack with BLS 55A 4in1 ESC
 - GPS receiver module with active antenna
-- HMC5883L compass module
+- QMC5883L compass module
 - Raspberry Pi Camera Module 3 (12MP autofocus)
 
 ## Features
@@ -56,7 +56,7 @@ python drone_control.py --dry-run
 
 5. Connect hardware:
    - GPS to flight controller UART
-   - HMC5883L to Raspberry Pi I2C
+   - QMC5883L to Raspberry Pi I2C
    - Configure iNAV for MAVLink serial passthrough
 
 ## Running the Code
@@ -98,7 +98,7 @@ Modify these settings in `destinations.py`:
 
 ### Hardware Connections
 - [ ] GPS module connected to F405 UART (configure in iNAV)
-- [ ] HMC5883L compass connected to Raspberry Pi I2C pins (SDA: GPIO 2, SCL: GPIO 3)
+- [ ] QMC5883L compass connected to Raspberry Pi I2C pins (SDA: GPIO 2, SCL: GPIO 3)
 - [ ] Raspberry Pi Camera Module 3 properly seated
 - [ ] Flight controller powered and iNAV firmware flashed
 

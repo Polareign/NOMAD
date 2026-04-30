@@ -5,3 +5,5 @@ picamera2
 Flask==2.3.3
 ultralytics==8.0.0
 torch==2.0.1
+smbus2
+qmc5883l

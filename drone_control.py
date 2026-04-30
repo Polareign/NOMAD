@@ -104,7 +104,7 @@ def init_mavlink(dry_run=False):
         return None
 
     try:
-        master = mavutil.mavlink_connection('/dev/ttyAMA0', baud=115200)
+        master = mavutil.mavlink_connection('/dev/serial0', baud=115200)
         return master
     except Exception as exc:
         logger.warning('Failed to connect to MAVLink: %s', exc)
@@ -121,22 +121,27 @@ def init_compass(dry_run=False):
 
     try:
         bus = smbus.SMBus(1)
-        address = 0x1E
-        bus.write_byte_data(address, 0x00, 0x70)
-        bus.write_byte_data(address, 0x01, 0xA0)
-        bus.write_byte_data(address, 0x02, 0x00)
+        address = 0x0D  # QMC5883L address
+        # Set measurement range to ±2G
+        bus.write_byte_data(address, 0x0B, 0x01)
+        # Set measurement rate to 200Hz with 8 oversampling
+        bus.write_byte_data(address, 0x0A, 0x00)
+        # Set continuous measurement mode
+        bus.write_byte_data(address, 0x09, 0x0D)
         return True
     except Exception as exc:
-        logger.warning('Failed to initialize HMC5883L compass: %s', exc)
+        logger.warning('Failed to initialize QMC5883L compass: %s', exc)
         return False
 
 
 def read_compass(bus):
-    address = 0x1E
-    data = bus.read_i2c_block_data(address, 0x03, 6)
-    x = data[0] << 8 | data[1]
-    z = data[2] << 8 | data[3]
-    y = data[4] << 8 | data[5]
+    address = 0x0D  # QMC5883L address
+    # QMC5883L data registers start at 0x00 (X LSB, X MSB, Z LSB, Z MSB, Y LSB, Y MSB)
+    data = bus.read_i2c_block_data(address, 0x00, 6)
+    x = data[1] << 8 | data[0]
+    z = data[3] << 8 | data[2]
+    y = data[5] << 8 | data[4]
+    # Handle signed 16-bit values
     if x > 32767:
         x -= 65536
     if y > 32767:
