@@ -29,7 +29,13 @@ sudo apt-get install -y \
     libkrb5-dev \
     libssl-dev
 
-# Step 3: Create virtual environment (RECOMMENDED)
+# Step 2.5: Hotfix
+echo "Removing Environment"
+rm -rf venv
+echo "Creating Environment"
+python3 -m venv venv
+
+# Step 3: Create virtual environment
 echo ""
 echo "Step 3: Setting up Python virtual environment..."
 if [ ! -d "venv" ] || [ ! -f "venv/bin/pip" ]; then

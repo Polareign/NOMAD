@@ -1,9 +1,8 @@
-numpy>=1.26
-opencv-python==4.8.0.74
+numpy>=2.1.0
+opencv-python>=4.10.0.84
 pymavlink==2.4.41
 picamera2
 flask==2.3.3
-ultralytics==8.0.0
-torch>=2.0.1
+ultralytics>=8.3.0
 smbus2
 qmc5883l
