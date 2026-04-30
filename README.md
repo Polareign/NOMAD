@@ -23,12 +23,19 @@ This project implements obstacle avoidance, image recognition, and autonomous GP
 
 ## Setup
 
-### Quick Start (Recommended with Virtual Environment)
+### Quick Start
+```bash
+bash setup.sh --test
+python drone_control.py --dry-run
+```
+
+### Quick Start with Hotspot
 ```bash
 bash setup.sh
+sudo bash setup.sh --hotspot
 source venv/bin/activate
-python test_setup.py
-python drone_control.py --dry-run
+python test_setup.py --hotspot
+python drone_control.py
 ```
 
 ### Manual Setup
@@ -58,6 +65,39 @@ python drone_control.py --dry-run
    - GPS to flight controller UART
    - QMC5883L to Raspberry Pi I2C
    - Configure iNAV for MAVLink serial passthrough
+
+## Wi-Fi Hotspot / Captive Portal
+This project serves the drone control interface from the Pi over HTTP at `http://<pi-ip>:5000/`. If you configure the Raspberry Pi as a Wi-Fi access point, any client on that hotspot can open the browser to the Pi's IP address and reach the drone control UI.
+
+For automatic redirection from a connected client, you also need OS-level hotspot/captive-portal configuration using tools such as `hostapd`, `dnsmasq`, and firewall NAT rules. The Flask app now includes fallback redirect routes, so unknown paths are redirected to the main interface.
+
+### Hotspot setup
+1. Run the setup script with hotspot mode:
+   ```bash
+   sudo bash setup.sh --hotspot --test
+   ```
+2. Start the drone control server in the project directory:
+   ```bash
+   source venv/bin/activate
+   python drone_control.py
+   ```
+3. Connect a phone or laptop to the Wi-Fi network:
+   - SSID: `NOMAD`
+   - Password: `polareign`
+4. Open the web app at the IP address shown during setup (typically `http://192.168.4.1:5000/` for hotspot mode)
+
+### Testing redirect routes
+To verify the Flask captive portal redirect endpoints locally, run:
+```bash
+python test_setup.py --hotspot
+```
+
+Or use the combined setup command which includes testing:
+```bash
+sudo bash setup.sh --hotspot --test
+```
+
+If browser auto-redirect does not work immediately, manually open the URL above.
 
 ## Running the Code
 ```

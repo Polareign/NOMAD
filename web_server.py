@@ -3,7 +3,7 @@ Web Server for Drone Configuration
 Provides REST API and web interface for updating drone destinations and flight parameters
 """
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for
 import json
 import os
 from threading import Thread
@@ -141,6 +141,21 @@ def get_status():
         'destinations_count': len(config.get('destinations', {})),
         'flight_parameters_set': len(config.get('flight_parameters', {})) > 0
     })
+
+@app.route('/generate_204')
+def android_captive_portal():
+    """Redirect Android captive portal validation to the app."""
+    return redirect(url_for('index'))
+
+@app.route('/hotspot-detect.html')
+def ios_captive_portal():
+    """Redirect iOS hotspot detection to the app."""
+    return redirect(url_for('index'))
+
+@app.route('/<path:path>')
+def catch_all(path):
+    """Redirect unknown paths back to the main interface."""
+    return redirect(url_for('index'))
 
 def run_server(host='0.0.0.0', port=5000, debug=False):
     """Run the Flask server"""

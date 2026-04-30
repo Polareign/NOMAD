@@ -84,3 +84,30 @@ When you update settings on the iPhone:
 2. Settings are saved to config.json
 3. drone_control.py automatically reloads the config
 4. Drone uses new settings on next flight
+
+## Hotspot / Captive Portal Setup
+If you want the Raspberry Pi to act as its own Wi-Fi hotspot, use the setup script with the --hotspot flag.
+
+### Setup
+1. Run the setup script with hotspot mode:
+   ```bash
+   sudo bash setup.sh --hotspot
+   ```
+2. Start the drone web server:
+   ```bash
+   source venv/bin/activate
+   python drone_control.py
+   ```
+3. Connect your device to the SSID `NOMAD-Drone` with password `dronecontrol`.
+4. Open the browser to:
+   ```
+   http://192.168.4.1:5000/
+   ```
+
+### Test captive portal routing
+Use the test script with hotspot mode to verify the Flask routes for captive portals:
+```bash
+python test_setup.py --hotspot
+```
+
+If the automatic redirect does not work on a device, manually navigate to the Pi IP above.
