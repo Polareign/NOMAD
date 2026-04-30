@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Setup script for NOMAD drone control system
 # Handles installation on Raspberry Pi 4 with proper dependency management
 
@@ -22,13 +23,7 @@ sudo apt-get install -y \
     python3-dev \
     python3-venv \
     build-essential \
-    libatlas-base-dev \
-    libjasper-dev \
-    libtiff5 \
-    libjasper1 \
-    libharfbuzz0b \
-    libwebp6 \
-    libtiff5 \
+    libcap-dev \
     libopenjp2-7 \
     libopenjp2-7-dev \
     i2c-tools \
@@ -52,31 +47,16 @@ echo "✓ Virtual environment activated"
 # Step 4: Upgrade pip, setuptools, and wheel
 echo ""
 echo "Step 4: Upgrading pip and build tools..."
-pip install --upgrade pip setuptools wheel
+python -m pip install --upgrade pip setuptools wheel
 
 # Step 5: Install Python requirements
 echo ""
 echo "Step 5: Installing Python packages..."
-pip install numpy==1.24.3
-echo "✓ NumPy installed"
-
-pip install opencv-python==4.8.0.74
-echo "✓ OpenCV installed"
-
-pip install pymavlink==2.4.41
-echo "✓ PyMAVLink installed"
-
-pip install picamera2
-echo "✓ PiCamera2 installed"
-
-pip install Flask==2.3.3
-echo "✓ Flask installed"
-
-pip install ultralytics==8.0.0
-echo "✓ Ultralytics installed"
-
-pip install torch==2.0.1
-echo "✓ PyTorch installed"
+echo "Step 5a: Installing CPU-only PyTorch and torchvision..."
+python -m pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+echo "✓ CPU-only PyTorch installed"
+echo "Step 5b: Installing remaining Python requirements..."
+python -m pip install --no-cache-dir -r requirements.txt
 
 echo ""
 echo "===== Installation Complete ====="

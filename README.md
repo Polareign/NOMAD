@@ -17,7 +17,7 @@ This project implements obstacle avoidance, image recognition, and autonomous GP
 - Web interface for drone configuration
 
 ## Requirements
-- Python libraries: opencv-python, numpy, picamera2, pymavlink, ultralytics, torch, Flask
+- Python libraries: opencv-python, numpy, picamera2, pymavlink, ultralytics, torch, Flask, smbus2, qmc5883l
 - iNAV firmware on F405 flight controller
 - Internet connection (first run downloads YOLO11n model ~35MB)
 
