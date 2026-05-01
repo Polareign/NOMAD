@@ -298,6 +298,12 @@ def run_main():
         logger.info('Destinations: %s', list(destinations.keys()))
         if not destinations:
             logger.warning('No destinations configured. Add entries to config.json or destinations.py.')
+        logger.info('Dry run will continue until interrupted with Ctrl+C. Web server is available for testing.')
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info('Dry run terminated by user.')
         return
 
     picam2 = init_camera(dry_run=False)
