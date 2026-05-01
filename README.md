@@ -66,8 +66,6 @@ python drone_control.py
 
 **WARNING**: Only run with props off first! Ensure all systems are working before attaching propellers.
 
-## Easy Configuration
-
 ### Changing Destinations
 Edit `destinations.py` to add or modify flight destinations:
 
@@ -86,14 +84,6 @@ Modify these settings in `destinations.py`:
 - `OBSTACLE_TURN_RATE` = rotation speed
 - `CONFIDENCE_THRESHOLD` = YOLO detection confidence (0.0-1.0)
 
-### Virtual Environment FAQ
-- **Q: Do I need venv?** 
-  - **A**: Recommended! It isolates dependencies and prevents conflicts with system Python.
-- **Q: What's the difference between venv and venv-1?**
-  - **A**: venv-1 doesn't exist by default. Use just `venv` as shown in setup.sh
-- **Q: How to activate/deactivate?**
-  - **A**: `source venv/bin/activate` to activate, `deactivate` to exit
-
 ## Pre-Flight Checklist
 
 ### Hardware Connections
@@ -106,7 +96,6 @@ Modify these settings in `destinations.py`:
 - [ ] Enable MAVLink serial passthrough
 - [ ] Configure GPS settings
 - [ ] Calibrate compass and accelerometer
-- [ ] Set up failsafes
 
 ### Safety Checks
 - [ ] Verify propeller directions
@@ -125,8 +114,6 @@ Modify these settings in `destinations.py`:
 ```
 python drone_control.py
 ```
-
-**WARNING**: Only run with props off first! Ensure all systems are working before attaching propellers.
 
 ## Usage
 - Power on the drone
