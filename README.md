@@ -1,29 +1,30 @@
-# Custom Drone Autonomous Flight Code
+# Custom Drone Autonomous Flight Setup
 
-This project implements obstacle avoidance, image recognition, and autonomous GPS flight for a custom drone using Raspberry Pi 4, SpeedyBee F405 V4 flight controller with iNAV, GPS module, QMC5883L compass, and Raspberry Pi Camera Module 3.
+Autonomous drone control for a drone. This project implements obstacle avoidance, image recognition, and autonomous GPS flight for a custom drone using Raspberry Pi 4B, SpeedyBee F405 V5 flight controller with ArduPilot, GPS module, DY-880 GPS with HMC5883L compass, and Raspberry Pi Camera Module 3.
+
+## Overview
+This project runs a web enabled companion computer controller that launches and monitors an ArduPilot-powered drone. The Pi hosts a web UI, camera/YOLO obstacle detection, compass/GPS checks, and a launch flow that waits for web authorization before arming and taking off.
 
 ## Hardware
-- Raspberry Pi 4 Model B 4GB
-- SpeedyBee F405 V4 stack with BLS 55A 4in1 ESC
-- GPS receiver module with active antenna
-- QMC5883L compass module
-- Raspberry Pi Camera Module 3 (12MP autofocus)
+- Raspberry Pi 4 Model B
+- DY-880 GPS module with HMC5883L compass
+- Raspberry Pi Camera Module 3
+- 6S LiPo battery
+- SpeedyBee F405 V5 stack with BLS 55A 4in1 ESC
 
-## Features
-- Real-time obstacle detection using YOLO11n
-- Autonomous navigation to predefined destinations
-- Real-time GPS and compass data integration
-- Live image capture and processing with Raspberry Pi camera
-- Web interface for drone configuration
+## Firmware
+- ArduPilot Copter stable firmware for SpeedyBee F405 V5
+- Companion computer mode via SERIAL6 on UART6
 
 ## Requirements
-- Python libraries: opencv-python, numpy, picamera2, pymavlink, ultralytics, torch, Flask, smbus2, qmc5883l
-- iNAV firmware on F405 flight controller
-- Internet connection (first run downloads YOLO11n model ~35MB)
+- Python libraries: `opencv-python`, `numpy`, `picamera2`, `pymavlink`, `Flask`, `ultralytics`, `torch`, `smbus2`
+- `picamera2` compatible camera support
+- `pymavlink` for MAVLink communication
+- `smbus2` for I2C compass reads
 
 ## Setup
 
-### Quick Start (Recommended with Virtual Environment)
+### Quick Start
 ```bash
 bash setup.sh
 source venv/bin/activate
@@ -32,91 +33,59 @@ python drone_control.py --dry-run
 ```
 
 ### Manual Setup
-1. Install system dependencies:
-   ```
-   sudo apt-get update && sudo apt-get install -y python3-pip python3-venv build-essential
-   ```
+```bash
+sudo apt-get update && sudo apt-get install -y python3-pip python3-venv python3-dev build-essential i2c-tools libopenjp2-7 libopenjp2-7-dev libssl-dev
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+python -m pip install --no-cache-dir -r requirements.txt
+```
 
-2. Create and activate virtual environment:
-   ```
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+## Systemd Auto-Start Service
+The `nomad.service` file is designed to run `drone_control.py` from `/home/pi/nomad` using the virtual environment at `/home/pi/nomad/venv`.
 
-3. Install Python dependencies:
-   ```
-   pip install --upgrade pip setuptools wheel
-   pip install -r requirements.txt
-   ```
+### Install service
+```bash
+sudo cp nomad.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now nomad
+sudo systemctl status nomad
+```
 
-4. Test the setup:
-   ```
-   python test_setup.py
-   ```
+### Service behavior
+- Waits for `network-online.target` before starting
+- Sleeps 5 seconds before running the script to allow hardware to settle
+- Starts the web server and companion controller automatically
+- Does not automatically launch the drone; it waits for the web UI `Launch` authorization
+- Logs are available via `journalctl -u nomad -f`
 
-5. Connect hardware:
-   - GPS to flight controller UART
-   - QMC5883L to Raspberry Pi I2C
-   - Configure iNAV for MAVLink serial passthrough
+> If your installation path is not `/home/pi/nomad`, adjust `WorkingDirectory` and `ExecStart` in `nomad.service` accordingly.
 
 ## Running the Code
+### Dry run
+```bash
+python drone_control.py --dry-run
 ```
+
+### Test mode
+```bash
+python drone_control.py --test --preview
+```
+
+### Normal run
+```bash
 python drone_control.py
 ```
 
-**WARNING**: Only run with props off first! Ensure all systems are working before attaching propellers.
+The script now starts the Flask web UI and waits for a controller to press `Launch` before arming.
 
-### Changing Destinations
-Edit `destinations.py` to add or modify flight destinations:
+## Hardware Tests
+- Camera: `python -c "from picamera2 import Picamera2; p=Picamera2(); p.start(); print('Camera OK'); p.stop()"`
+- MAVLink: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/ttyAMA0', baud=57600); m.wait_heartbeat(); print('MAVLink OK')"`
+- Compass/I2C: `python -c "import smbus2 as smbus; bus=smbus.SMBus(1); print('I2C OK')"`
 
-```python
-DESTINATIONS = {
-    'A': (37.7749, -122.4194),      # San Francisco
-    'B': (34.0522, -118.2437),      # Los Angeles
-    'home': (40.7128, -74.0060),    # Your location
-}
-```
-
-### Flight Parameters
-Modify these settings in `destinations.py`:
-- `TAKEOFF_ALTITUDE` = flight height in meters
-- `FLIGHT_SPEED` = forward velocity
-- `OBSTACLE_TURN_RATE` = rotation speed
-- `CONFIDENCE_THRESHOLD` = YOLO detection confidence (0.0-1.0)
-
-## Pre-Flight Checklist
-
-### Hardware Connections
-- [ ] GPS module connected to F405 UART (configure in iNAV)
-- [ ] QMC5883L compass connected to Raspberry Pi I2C pins (SDA: GPIO 2, SCL: GPIO 3)
-- [ ] Raspberry Pi Camera Module 3 properly seated
-- [ ] Flight controller powered and iNAV firmware flashed
-
-### iNAV Configuration
-- [ ] Enable MAVLink serial passthrough
-- [ ] Configure GPS settings
-- [ ] Calibrate compass and accelerometer
-
-### Safety Checks
-- [ ] Verify propeller directions
-- [ ] Test motor spin without props
-- [ ] Confirm GPS lock
-- [ ] Test compass calibration
-- [ ] Ensure clear flight area
-
-### Testing
-- [ ] Run `python test_setup.py` to verify software
-- [ ] Test camera: `python -c "from picamera2 import Picamera2; p=Picamera2(); p.start(); print('Camera OK'); p.stop()"`
-- [ ] Test MAVLink: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/ttyAMA0', baud=115200); m.wait_heartbeat(); print('MAVLink OK')"`
-- [ ] Test compass: `python -c "import smbus; bus=smbus.SMBus(1); print('I2C OK')"`
-
-## Running the Code
-```
-python drone_control.py
-```
-
-## Usage
-- Power on the drone
-- Run the script
-- Enter destination when prompted
-- Drone will arm, takeoff, avoid obstacles, and navigate to destination
+## Notes
+- The current software assumes HMC5883L on address `0x1E`.
+- The web UI is required to authorize launch and provide destination selection.
+- Props must be removed until the first full hardware test is complete.

@@ -1,0 +1,32 @@
+[Unit]
+Description=NOMAD Drone Control System
+# Wait for network so the web interface is reachable
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/nomad
+
+# Give hardware time to settle after boot before we try to connect
+ExecStartPre=/bin/sleep 5
+
+# Use the venv Python; adjust paths if installed somewhere else
+ExecStart=/home/pi/nomad/venv/bin/python drone_control.py
+
+# Restart on crash, but not on clean exit (e.g. Ctrl+C or normal shutdown)
+Restart=on-failure
+RestartSec=10
+
+# Log goes to journald — view with: journalctl -u nomad -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nomad
+
+# Allow I2C and serial access
+SupplementaryGroups=i2c dialout gpio video
+
+[Install]
+WantedBy=multi-user.target
