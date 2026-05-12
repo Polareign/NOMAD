@@ -3,26 +3,25 @@ import json
 import logging
 import math
 import os
+import subprocess
 import sys
 import time
-import threading
 from dataclasses import dataclass
- 
+
 import cv2
-import numpy as np
 import SkeletonYolo as sy
 from web_server import start_server_background, get_state, set_state
- 
+
 try:
     from picamera2 import Picamera2
 except ImportError:
     Picamera2 = None
- 
+
 try:
     from pymavlink import mavutil
 except ImportError:
     mavutil = None
- 
+
 try:
     import smbus2 as smbus
 except ImportError:
@@ -30,17 +29,12 @@ except ImportError:
         import smbus
     except ImportError:
         smbus = None
- 
+
 try:
     import psutil
 except ImportError:
     psutil = None
- 
-try:
-    import subprocess
-except ImportError:
-    subprocess = None
- 
+
 try:
     import requests
 except ImportError:
@@ -84,6 +78,19 @@ class FlightConfig:
     def __post_init__(self):
         if self.obstacle_objects is None:
             self.obstacle_objects = []
+
+
+# ---------------------------------------------------------------------------
+# Logger  (must be defined before ObstacleAvoider so _transition can use it)
+# ---------------------------------------------------------------------------
+logger = logging.getLogger('nomad')
+logger.setLevel(logging.INFO)
+_sh = logging.StreamHandler(sys.stdout)
+_sh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
+logger.addHandler(_sh)
+_fh = logging.FileHandler('nomad_flight.log')
+_fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
+logger.addHandler(_fh)
 
 
 # ---------------------------------------------------------------------------
@@ -150,19 +157,6 @@ class ObstacleAvoider:
                 self._transition(self.FORWARD)
 
 
-# ---------------------------------------------------------------------------
-# Logger
-# ---------------------------------------------------------------------------
-logger = logging.getLogger('nomad')
-logger.setLevel(logging.INFO)
-_sh = logging.StreamHandler(sys.stdout)
-_sh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
-logger.addHandler(_sh)
-_fh = logging.FileHandler('nomad_flight.log')
-_fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
-logger.addHandler(_fh)
- 
- 
 # ---------------------------------------------------------------------------
 # Args
 # ---------------------------------------------------------------------------
@@ -930,8 +924,8 @@ def run_main():
     takeoff(master, flight_config.takeoff_altitude)
     time.sleep(6)
 
-    dest_key = get_state('destination').upper()
-    if dest_key not in destinations:
+    dest_key = (get_state('destination') or '').upper()
+    if not dest_key or dest_key not in destinations:
         logger.warning('No valid destination set — landing')
         land(master)
         time.sleep(6)

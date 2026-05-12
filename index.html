@@ -427,9 +427,9 @@
     <!-- ── Sidebar ── -->
     <aside class="sidebar">
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('fly')">FLY</button>
-            <button class="tab-btn" onclick="switchTab('dests')">DESTS</button>
-            <button class="tab-btn" onclick="switchTab('params')">PARAMS</button>
+            <button class="tab-btn active" onclick="switchTab('fly', this)">FLY</button>
+            <button class="tab-btn" onclick="switchTab('dests', this)">DESTS</button>
+            <button class="tab-btn" onclick="switchTab('params', this)">PARAMS</button>
         </div>
 
         <!-- FLY tab -->
@@ -547,11 +547,11 @@ function toast(msg, type = '') {
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────
-function switchTab(id) {
+function switchTab(id, btn) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + id).classList.add('active');
-    event.target.classList.add('active');
+    btn.classList.add('active');
 }
 
 // ── Status polling ────────────────────────────────────────────────────────

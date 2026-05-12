@@ -8,23 +8,36 @@ class SkeletonYolo:
     def __init__(self, confThreshold=0.5, classes=None):
         """
         Initialize YOLO11n model for object detection.
-        
+
         Args:
             confThreshold: Confidence threshold for detections (default 0.5)
-            classes: List of obstacle classes to detect (optional, uses YOLO defaults)
+            classes: List of obstacle class names to detect. When provided,
+                     inference is restricted to only these classes for better
+                     performance. Uses all COCO classes if None.
         """
         self.confThreshold = confThreshold
         self.model = None
-        self.classNames = classes if classes is not None else self._get_default_coco_classes()
-        
+        self._all_classes    = self._get_default_coco_classes()
+        self._filter_classes = classes  # names requested by caller
+
         try:
-            # Load YOLO11n model (automatically downloads if not present)
             self.model = YOLO('yolo11n.pt')
             self.model.conf = confThreshold
             logger.info('YOLO11n model loaded successfully')
         except Exception as exc:
             logger.error('Failed to load YOLO11n model: %s', exc)
             self.model = None
+
+        # Pre-compute numeric class IDs to pass to YOLO for faster inference.
+        # YOLO accepts a list of integer class IDs via the `classes=` arg.
+        if classes:
+            lower_filter = {c.lower() for c in classes}
+            self._class_ids = [
+                i for i, name in enumerate(self._all_classes)
+                if name.lower() in lower_filter
+            ]
+        else:
+            self._class_ids = None  # no filter → detect everything
 
     @staticmethod
     def _get_default_coco_classes():
@@ -56,8 +69,9 @@ class SkeletonYolo:
             return []
 
         try:
-            # Run inference
-            results = self.model(img, verbose=False)
+            # Run inference — restrict to obstacle classes when a filter is set
+            results = self.model(img, verbose=False,
+                                 classes=self._class_ids if self._class_ids else None)
             
             detected_objects = []
             

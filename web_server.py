@@ -1,10 +1,10 @@
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 import json
 import os
 import time
 import threading
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__)
 
 CONFIG_FILE = 'config.json'
 
@@ -61,7 +61,7 @@ def save_config(config):
 # Pages
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return send_from_directory('.', 'index.html')
  
  
 # Destinations API
@@ -72,7 +72,7 @@ def get_destinations():
  
 @app.route('/api/destinations', methods=['POST'])
 def create_destination():
-    data = request.json
+    data = request.json or {}
     dest_id = data.get('id')
     if not dest_id:
         return jsonify({'error': 'Destination ID required'}), 400
@@ -106,7 +106,7 @@ def get_home():
  
 @app.route('/api/home', methods=['POST'])
 def update_home():
-    data = request.json
+    data = request.json or {}
     config = load_config()
     config.setdefault('destinations', {})['home'] = {
         'name':        'Home',
@@ -126,7 +126,7 @@ def get_flight_parameters():
  
 @app.route('/api/flight-parameters', methods=['POST'])
 def update_flight_parameters():
-    data   = request.json
+    data   = request.json or {}
     config = load_config()
     params = config.setdefault('flight_parameters', {})
  
