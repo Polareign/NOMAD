@@ -206,29 +206,36 @@ def clear_emergency_stop():
     set_state(emergency_stop=False)
     return jsonify({'success': True, 'message': 'Emergency stop cleared'})
  
- 
+
+# BUG 3 FIX: Use set_state() so the write goes through _state_lock,
+# consistent with every other endpoint. The old code wrote to drone_state
+# directly, bypassing the lock and creating a race condition with readers
+# in drone_control.py (check_heartbeat_timeout) and get_status below.
 @app.route('/api/heartbeat', methods=['POST'])
 def heartbeat():
     """
     Web controller heartbeat — POST this every 5 seconds from the UI.
     If the drone is airborne and heartbeats stop for 15 s, it auto-lands.
     """
-    drone_state['last_heartbeat'] = time.time()
-    return jsonify({'success': True, 'timestamp': drone_state['last_heartbeat']})
+    set_state(last_heartbeat=time.time())
+    return jsonify({'success': True, 'timestamp': get_state('last_heartbeat')})
  
- 
-# Status API
+
+# BUG 4 FIX: Use get_state() for all reads so they go through _state_lock.
+# The old code called drone_state.get() directly, which is a race condition
+# when drone_control.py is writing via set_state() on another thread.
 @app.route('/api/status', methods=['GET'])
 def get_status():
     config = load_config()
+    state = get_state('mode', 'emergency_stop', 'launch_authorized', 'destination', 'last_heartbeat')
     return jsonify({
-        'drone_mode':          drone_state.get('mode', 'idle'),
-        'emergency_stop':      drone_state.get('emergency_stop', False),
-        'launch_authorized':   drone_state.get('launch_authorized', False),
-        'current_destination': drone_state.get('destination', ''),
+        'drone_mode':          state.get('mode', 'idle'),
+        'emergency_stop':      state.get('emergency_stop', False),
+        'launch_authorized':   state.get('launch_authorized', False),
+        'current_destination': state.get('destination', ''),
         'destinations_count':  len(config.get('destinations', {})),
         'flight_parameters_set': len(config.get('flight_parameters', {})) > 0,
-        'last_heartbeat':      drone_state.get('last_heartbeat'),
+        'last_heartbeat':      state.get('last_heartbeat'),
         'config_loaded':       True,
     })
  
