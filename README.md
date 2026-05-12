@@ -89,7 +89,7 @@ Runs all available tests including system resources, network, USB devices, GPIO 
 python drone_control.py --motor-test
 ```
 
-The script connects to the flight controller and spins all motors at 40% power for 3 seconds. **Remove props first!** Requires the drone to be armed.
+The script connects to the flight controller and spins all motors at 40% power for 2 seconds. **Remove props first!** It will attempt to auto-arm the drone if possible.
 
 ### Normal run
 ```bash
@@ -102,7 +102,7 @@ The script now starts the Flask web UI and waits for a controller to press `Laun
 - `--dry-run`: No hardware interaction, web server + config only
 - `--test`: Hardware enabled but no arm/takeoff; tests camera, compass, MAVLink
 - `--comprehensive-test`: Run all available hardware and system tests (extended diagnostics)
-- `--motor-test`: Spin motors for 3 seconds at 40% power (requires armed drone)
+- `--motor-test`: Spin all motors for 2 seconds at 40% power with auto-arm if available
 - `--no-server`: Skip Flask web server
 - `--preview`: Show camera window (requires DISPLAY)
 - `--port <number>`: Set web server port (default: 5000)

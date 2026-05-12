@@ -791,17 +791,9 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
 # ---------------------------------------------------------------------------
 def run_motor_test(master):
     """
-    Spin each motor individually for 3 seconds at 40% power.
+    Spin all motors at 40% power for 2 seconds.
 
-    PROPS MUST BE REMOVED. The drone must already be armed before calling
-    this function.
-
-    BUG 11 FIX: The original code passed param1=0 to MAV_CMD_DO_MOTOR_TEST.
-    The meaning of param1=0 varies across ArduPilot firmware versions — in
-    some builds it means 'motor instance 1', in others 'all motors at once'.
-    To eliminate this ambiguity we now iterate over each motor explicitly
-    using 1-based instance numbers, which is unambiguous across all versions.
-    Adjust NUM_MOTORS below to match your frame type if needed.
+    PROPS MUST BE REMOVED. The drone will be auto-armed if possible.
     """
     if not master:
         logger.error('Motor test requires MAVLink connection')
@@ -815,42 +807,36 @@ def run_motor_test(master):
         return
     logger.info('Target locked: sys=%s comp=%s', master.target_system, master.target_component)
     logger.info('=' * 50)
-    logger.info('MOTOR TEST — spinning each motor at 40%% for 3 seconds')
-    logger.info('ENSURE PROPS ARE REMOVED AND DRONE IS ARMED!')
+    logger.info('MOTOR TEST — spinning all motors at 40%% for 2 seconds')
+    logger.info('ENSURE PROPS ARE REMOVED BEFORE TESTING!')
     logger.info('=' * 50)
 
-    # Arm the drone in STABILIZE mode so motor test commands are accepted
-    logger.info('Setting STABILIZE mode and arming...')
+    logger.info('Setting STABILIZE mode and attempting auto-arm...')
     set_mode(master, MODE_STABILIZE)
     time.sleep(0.5)
     armed = arm_drone(master, force=True)
     if not armed:
-        logger.error('Motor test aborted: could not arm the drone.')
-        logger.error('Check: props removed, safety switch, pre-arm checks in Mission Planner.')
-        return
-    logger.info('Drone armed — starting motor test in 2 seconds...')
-    time.sleep(2)
+        logger.warning('Auto-arm failed; motor test command will still be sent.')
+    else:
+        logger.info('Drone armed successfully.')
 
-    NUM_MOTORS = 4  # Change to 6 for hexa, 8 for octa, etc.
+    logger.info('Starting motor test in 3 seconds...')
+    time.sleep(3)
 
-    for motor_instance in range(1, NUM_MOTORS + 1):
-        logger.info('Testing motor %d of %d...', motor_instance, NUM_MOTORS)
-        master.mav.command_long_send(
-            master.target_system, master.target_component,
-            mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST,
-            0,              # confirmation
-            motor_instance, # param1: explicit 1-based motor number (not 0)
-            1,              # param2: throttle type — 1 = percentage
-            40,             # param3: throttle percentage
-            3,              # param4: timeout in seconds
-            0, 0, 0         # param5-7: unused
-        )
-        time.sleep(3.5)
-        logger.info('Motor %d done', motor_instance)
-
-    logger.info('Motor test complete — all %d motors tested', NUM_MOTORS)
-    logger.info('Disarming...')
-    disarm_drone(master)
+    master.mav.command_long_send(
+        master.target_system, master.target_component,
+        mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST,
+        0,
+        0,              # param1: 0 = all motors
+        1,              # param2: throttle type — 1 = percentage
+        40,             # param3: throttle percentage
+        2,              # param4: duration in seconds
+        0, 0, 0         # param5-7: unused
+    )
+    logger.info('Motor test command sent: all motors at 40%% for 2 seconds')
+    time.sleep(2.5)
+    logger.info('Motor test complete')
+    logger.info('Leaving drone armed for manual disarm or further action.')
  
  
 # ---------------------------------------------------------------------------
