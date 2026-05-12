@@ -73,6 +73,20 @@ python drone_control.py --dry-run
 python drone_control.py --test --preview
 ```
 
+### Comprehensive test
+```bash
+python drone_control.py --comprehensive-test --preview
+```
+
+Runs all available tests including system resources, network, USB devices, GPIO status, extended flight controller diagnostics (IMU, barometer, vibration, radio), web server status, and log file checks.
+
+### Motor test
+```bash
+python drone_control.py --motor-test
+```
+
+The script connects to the flight controller and spins all motors at 40% power for 3 seconds. **Remove props first!** Requires the drone to be armed.
+
 ### Normal run
 ```bash
 python drone_control.py
@@ -80,10 +94,38 @@ python drone_control.py
 
 The script now starts the Flask web UI and waits for a controller to press `Launch` before arming.
 
+## Command Line Options
+- `--dry-run`: No hardware interaction, web server + config only
+- `--test`: Hardware enabled but no arm/takeoff; tests camera, compass, MAVLink
+- `--comprehensive-test`: Run all available hardware and system tests (extended diagnostics)
+- `--motor-test`: Spin motors for 3 seconds at 40% power (requires armed drone)
+- `--no-server`: Skip Flask web server
+- `--preview`: Show camera window (requires DISPLAY)
+- `--port <number>`: Set web server port (default: 5000)
+- `--config <file>`: Specify config file (default: config.json)
+
 ## Hardware Tests
 - Camera: `python -c "from picamera2 import Picamera2; p=Picamera2(); p.start(); print('Camera OK'); p.stop()"`
-- MAVLink: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/ttyAMA0', baud=57600); m.wait_heartbeat(); print('MAVLink OK')"`
+- MAVLink: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/serial0', baud=57600); m.wait_heartbeat(); print('MAVLink OK')"`
 - Compass/I2C: `python -c "import smbus2 as smbus; bus=smbus.SMBus(1); print('I2C OK')"`
+- Serial connection: `ls -l /dev/serial*` (should show serial0)
+- I2C devices: `i2cdetect -y 1` (should show 1e for HMC5883L)
+- GPS: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/serial0', baud=57600); msg=m.recv_match(type='GPS_RAW_INT', blocking=True, timeout=5); print('GPS sats:', msg.satellites_visible if msg else 'No GPS')"`
+- Motor test (props removed): `python drone_control.py --motor-test` (requires armed drone)
+- System resources: `python -c "import psutil; print(f'CPU: {psutil.cpu_percent()}%, RAM: {psutil.virtual_memory().percent}%')"`
+- CPU temperature: `vcgencmd measure_temp` or `cat /sys/class/thermal/thermal_zone0/temp`
+- Network: `ip route` (should show default route)
+- USB devices: `lsusb` (should show connected devices)
+- GPIO pins: `gpio readall` (shows pin states)
+- RTC: `hwclock -r` (shows real-time clock)
+- IMU data: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/serial0', baud=57600); msg=m.recv_match(type='RAW_IMU', blocking=True, timeout=5); print('IMU OK' if msg else 'No IMU')"`
+- Barometer: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/serial0', baud=57600); msg=m.recv_match(type='SCALED_PRESSURE', blocking=True, timeout=5); print(f'Pressure: {msg.press_abs} hPa' if msg else 'No baro')"`
+- Vibration: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/serial0', baud=57600); msg=m.recv_match(type='VIBRATION', blocking=True, timeout=5); print('Vibration OK' if msg else 'No vibration data')"`
+- Radio link: `python -c "from pymavlink import mavutil; m=mavutil.mavlink_connection('/dev/serial0', baud=57600); msg=m.recv_match(type='RADIO_STATUS', blocking=True, timeout=5); print(f'RSSI: {msg.rssi}' if msg else 'No radio')"`
+- Web server: `curl http://localhost:5000/status` (should return JSON status)
+- Log files: `ls -lh nomad_flight.log` (check log file exists and size)
+- Disk space: `df -h /` (check available disk space)
+- Time sync: `timedatectl status` (check NTP synchronization)
 
 ## Notes
 - The current software assumes HMC5883L on address `0x1E`.

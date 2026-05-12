@@ -7,3 +7,5 @@ ultralytics>=8.3.0
 smbus2
 qmc5883l
 pyserial
+psutil
+requests

@@ -48,7 +48,7 @@ try:
     print("✓ PiCamera2 OK")
     tests.append(True)
 except ImportError:
-    print("✗ PiCamera2 not installed (OK if not on Raspberry Pi)")
+    print("✗ PiCamera2 not installed")
     tests.append(True)
 
 # Test PyMAVLink
@@ -66,7 +66,7 @@ try:
     print("✓ SMBus OK")
     tests.append(True)
 except ImportError:
-    print("✗ SMBus not installed (OK if not on Raspberry Pi)")
+    print("✗ SMBus not installed")
     tests.append(True)
 
 # Test flask

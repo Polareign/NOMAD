@@ -30,6 +30,21 @@ except ImportError:
     except ImportError:
         smbus = None
  
+try:
+    import psutil
+except ImportError:
+    psutil = None
+ 
+try:
+    import subprocess
+except ImportError:
+    subprocess = None
+ 
+try:
+    import requests
+except ImportError:
+    requests = None
+ 
 # Constants
 DEFAULT_CONFIG_FILE   = 'config.json'
 DEFAULT_SERVER_PORT   = 5000
@@ -56,6 +71,8 @@ def parse_args():
     p = argparse.ArgumentParser(description='NOMAD drone control — ArduPilot')
     p.add_argument('--dry-run',   action='store_true', help='No hardware, web server + config only')
     p.add_argument('--test',      action='store_true', help='Hardware on but no arm/takeoff; tests camera, compass, MAVLink')
+    p.add_argument('--comprehensive-test', action='store_true', help='Run all available hardware and system tests')
+    p.add_argument('--motor-test',action='store_true', help='Spin motors for 3 seconds at 40% power (requires armed drone)')
     p.add_argument('--no-server', action='store_true', help='Skip Flask web server')
     p.add_argument('--preview',   action='store_true', help='Show camera window (requires DISPLAY)')
     p.add_argument('--port',      type=int, default=DEFAULT_SERVER_PORT)
@@ -115,8 +132,7 @@ def init_mavlink(dry_run=False):
         logger.info('MAVLink: skipped')
         return None
     try:
-        # /dev/ttyAMA0 = Pi hardware UART (GPIO 14/15); baud matches SERIAL6_BAUD=57 → 57600
-        master = mavutil.mavlink_connection('/dev/ttyAMA0', baud=57600)
+        master = mavutil.mavlink_connection('/dev/serial0', baud=57600)
         master.wait_heartbeat(timeout=10)
         logger.info('MAVLink: connected (sys=%d comp=%d)', master.target_system, master.target_component)
         return master
@@ -389,7 +405,7 @@ def navigate_to_destination(master, bus, picam2, yolo, obstacle_objects,
  
  
 # Test Mode
-def run_test_mode(master, bus, picam2, yolo, obstacle_objects, args):
+def run_test_mode(master, bus, picam2, yolo, obstacle_objects, args, comprehensive=False):
     """
     Hardware-on test mode — no arming or takeoff.
     Validates camera, compass, MAVLink comms, YOLO detection, and web server.
@@ -420,6 +436,25 @@ def run_test_mode(master, bus, picam2, yolo, obstacle_objects, args):
             logger.info('[TEST] GPS fix: %.6f, %.6f', pos[0], pos[1])
         else:
             logger.warning('[TEST] No GPS fix yet')
+        
+        # GPS Status
+        msg_gps = master.recv_match(type='GPS_RAW_INT', blocking=True, timeout=3)
+        if msg_gps:
+            logger.info('[TEST] GPS satellites: %d, fix type: %d', msg_gps.satellites_visible, msg_gps.fix_type)
+        else:
+            logger.warning('[TEST] No GPS status received')
+        
+        # System Status
+        msg_sys = master.recv_match(type='SYS_STATUS', blocking=True, timeout=3)
+        if msg_sys:
+            logger.info('[TEST] System status: sensors present=0x%X, sensors enabled=0x%X, sensors health=0x%X', 
+                       msg_sys.onboard_control_sensors_present, msg_sys.onboard_control_sensors_enabled, msg_sys.onboard_control_sensors_health)
+        else:
+            logger.warning('[TEST] No system status received')
+        
+        # Check arming status
+        armed = msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED if msg else False
+        logger.info('[TEST] Arming status: %s', 'ARMED' if armed else 'DISARMED')
     else:
         logger.warning('[TEST] MAVLink not available')
  
@@ -428,11 +463,159 @@ def run_test_mode(master, bus, picam2, yolo, obstacle_objects, args):
         try:
             hdg = read_compass(bus)
             logger.info('[TEST] Compass heading: %.1f°', hdg)
+            # Check I2C devices
+            devices = []
+            for addr in range(0x03, 0x78):
+                try:
+                    bus.read_byte(addr)
+                    devices.append(hex(addr))
+                except:
+                    pass
+            logger.info('[TEST] I2C devices found: %s', ', '.join(devices))
         except Exception as exc:
             logger.warning('[TEST] Compass read failed: %s', exc)
     else:
         logger.warning('[TEST] Compass (smbus) not available')
  
+    # System Resources
+    if comprehensive:
+        logger.info('[TEST] System Resources:')
+        try:
+            if psutil:
+                cpu = psutil.cpu_percent(interval=1)
+                ram = psutil.virtual_memory()
+                disk = psutil.disk_usage('/')
+                logger.info('[TEST] CPU: %.1f%%, RAM: %.1f%% used (%.1f GB free), Disk: %.1f%% used (%.1f GB free)',
+                           cpu, ram.percent, ram.available / (1024**3), disk.percent, disk.free / (1024**3))
+        except:
+            logger.warning('[TEST] System resource check failed')
+    
+    # Temperature
+    if comprehensive:
+        try:
+            with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                temp = int(f.read().strip()) / 1000.0
+            logger.info('[TEST] CPU Temperature: %.1f°C', temp)
+        except:
+            logger.warning('[TEST] Could not read CPU temperature')
+    
+    # Network
+    if comprehensive:
+        logger.info('[TEST] Network Status:')
+        try:
+            if subprocess:
+                result = subprocess.run(['ip', 'route'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split('\n')
+                    for line in lines:
+                        if 'default' in line:
+                            logger.info('[TEST] Default route: %s', line.strip())
+                            break
+                else:
+                    logger.warning('[TEST] No default route found')
+        except:
+            logger.warning('[TEST] Network check failed')
+    
+    # USB Devices
+    if comprehensive:
+        try:
+            if subprocess:
+                result = subprocess.run(['lsusb'], capture_output=True, text=True, timeout=5)
+                usb_count = len(result.stdout.strip().split('\n')) if result.returncode == 0 else 0
+                logger.info('[TEST] USB devices: %d detected', usb_count)
+        except:
+            logger.warning('[TEST] USB check failed')
+    
+    # GPIO Status (if available)
+    if comprehensive:
+        try:
+            import RPi.GPIO as GPIO
+            GPIO.setmode(GPIO.BCM)
+            pins = [14, 15, 18, 23, 24, 25]  # Common pins
+            logger.info('[TEST] GPIO Status:')
+            for pin in pins:
+                try:
+                    GPIO.setup(pin, GPIO.IN)
+                    state = GPIO.input(pin)
+                    logger.info('[TEST] GPIO %d: %s', pin, 'HIGH' if state else 'LOW')
+                except:
+                    pass
+            GPIO.cleanup()
+        except ImportError:
+            logger.warning('[TEST] RPi.GPIO not available')
+    
+    # Time Synchronization
+    if comprehensive:
+        try:
+            with open('/proc/driver/rtc', 'r') as f:
+                rtc_info = f.read()
+            logger.info('[TEST] RTC available')
+        except:
+            logger.warning('[TEST] RTC not accessible')
+    
+    # Flight Controller Extended Diagnostics
+    if master and comprehensive:
+        # IMU Data
+        msg_imu = master.recv_match(type='RAW_IMU', blocking=True, timeout=3)
+        if msg_imu:
+            logger.info('[TEST] IMU: accel (%.2f, %.2f, %.2f), gyro (%.2f, %.2f, %.2f)',
+                       msg_imu.xacc/1000.0, msg_imu.yacc/1000.0, msg_imu.zacc/1000.0,
+                       msg_imu.xgyro/1000.0, msg_imu.ygyro/1000.0, msg_imu.zgyro/1000.0)
+        else:
+            logger.warning('[TEST] No IMU data received')
+        
+        # Barometer
+        msg_baro = master.recv_match(type='SCALED_PRESSURE', blocking=True, timeout=3)
+        if msg_baro:
+            logger.info('[TEST] Barometer: %.2f hPa, temperature %.1f°C', msg_baro.press_abs, msg_baro.temperature/100.0)
+        else:
+            logger.warning('[TEST] No barometer data received')
+        
+        # Vibration
+        msg_vib = master.recv_match(type='VIBRATION', blocking=True, timeout=3)
+        if msg_vib:
+            logger.info('[TEST] Vibration: X=%.3f, Y=%.3f, Z=%.3f m/s²',
+                       msg_vib.vibration_x, msg_vib.vibration_y, msg_vib.vibration_z)
+        else:
+            logger.warning('[TEST] No vibration data received')
+        
+        # Radio Status
+        msg_radio = master.recv_match(type='RADIO_STATUS', blocking=True, timeout=3)
+        if msg_radio:
+            logger.info('[TEST] Radio: RSSI %d, remote RSSI %d, txbuf %d, noise %d, remote noise %d',
+                       msg_radio.rssi, msg_radio.remrssi, msg_radio.txbuf, msg_radio.noise, msg_radio.remnoise)
+        else:
+            logger.warning('[TEST] No radio status received')
+        
+        # Flight Controller Parameters (sample)
+        try:
+            master.mav.param_request_read_send(master.target_system, master.target_component, b'ARMING_CHECK', -1)
+            msg_param = master.recv_match(type='PARAM_VALUE', blocking=True, timeout=3)
+            if msg_param:
+                logger.info('[TEST] ARMING_CHECK parameter: %.0f', msg_param.param_value)
+        except:
+            logger.warning('[TEST] Could not read parameters')
+    
+    # Web Server Status
+    if not args.no_server and comprehensive:
+        try:
+            if requests:
+                response = requests.get(f'http://localhost:{args.port}/status', timeout=5)
+                if response.status_code == 200:
+                    logger.info('[TEST] Web server: OK (status %d)', response.status_code)
+                else:
+                    logger.warning('[TEST] Web server: returned status %d', response.status_code)
+        except:
+            logger.warning('[TEST] Web server not responding')
+    
+    # Log Files
+    if comprehensive:
+        try:
+            log_size = os.path.getsize('nomad_flight.log') if os.path.exists('nomad_flight.log') else 0
+            logger.info('[TEST] Log file size: %.1f KB', log_size / 1024.0)
+        except:
+            logger.warning('[TEST] Could not check log file')
+    
     # Camera & YOLO Loop
     logger.info('[TEST] Starting camera + YOLO loop (Ctrl+C to stop)...')
     frame_count = 0
@@ -469,6 +652,44 @@ def run_test_mode(master, bus, picam2, yolo, obstacle_objects, args):
         drone_state['mode'] = 'idle'
         if args.preview and os.environ.get('DISPLAY'):
             cv2.destroyAllWindows()
+ 
+ 
+def run_motor_test(master):
+    """
+    Spin motors for 3 seconds at 40% power.
+    Requires MAVLink connection and armed drone.
+    """
+    if not master:
+        logger.error('Motor test requires MAVLink connection')
+        return
+    
+    logger.info('=' * 50)
+    logger.info('MOTOR TEST — spinning motors at 40% for 3 seconds')
+    logger.info('ENSURE PROPS ARE REMOVED!')
+    logger.info('=' * 50)
+    
+    # Check if armed
+    msg = master.recv_match(type='HEARTBEAT', blocking=True, timeout=3)
+    if not msg or not (msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED):
+        logger.error('Drone not armed — cannot run motor test')
+        return
+    
+    # Send motor test command
+    # MAV_CMD_DO_MOTOR_TEST: param1=motor number (0=all), param2=throttle type (1=pct), param3=throttle (40%), param4=timeout (3s)
+    master.mav.command_long_send(
+        master.target_system, master.target_component,
+        mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST,
+        0,  # confirmation
+        0,  # motor instance (0=all)
+        1,  # throttle type (1=pct)
+        40, # throttle pct
+        3,  # timeout seconds
+        0, 0, 0  # param5-7 unused
+    )
+    
+    logger.info('Motor test command sent — motors spinning...')
+    time.sleep(3.5)  # Wait a bit longer than 3s
+    logger.info('Motor test complete')
  
  
 # Main
@@ -523,9 +744,14 @@ def run_main():
     bus    = init_compass()
  
     # Test Mode
-    if args.test:
-        run_test_mode(master, bus, picam2, yolo, obstacle_objects, args)
+    if args.test or args.comprehensive_test:
+        run_test_mode(master, bus, picam2, yolo, obstacle_objects, args, comprehensive=args.comprehensive_test)
         if picam2: picam2.stop()
+        return
+    
+    # Motor Test Mode
+    if args.motor_test:
+        run_motor_test(master)
         return
  
     # Full Flight Mode
