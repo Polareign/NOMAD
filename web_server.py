@@ -250,7 +250,7 @@ def run_server(host='0.0.0.0', port=5000, debug=False):
  
  
 def start_server_background(host='0.0.0.0', port=5000):
-    t = Thread(target=run_server, args=(host, port, False), daemon=True)
+    t = threading.Thread(target=run_server, args=(host, port, False), daemon=True)
     t.start()
     return t
  

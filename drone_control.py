@@ -807,19 +807,14 @@ def run_motor_test(master):
         logger.error('Motor test requires MAVLink connection')
         return
     
+    logger.info('Waiting for heartbeat to lock target ID...')
+    master.wait_heartbeat()
+    logger.info('Target locked: sys=%s comp=%s', master.target_system, master.target_component)
     logger.info('=' * 50)
     logger.info('MOTOR TEST — spinning motors at 40% for 3 seconds')
     logger.info('ENSURE PROPS ARE REMOVED!')
     logger.info('=' * 50)
     
-    # Check if armed
-    msg = master.recv_match(type='HEARTBEAT', blocking=True, timeout=3)
-    if not msg or not (msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED):
-        logger.error('Drone not armed — cannot run motor test')
-        return
-    
-    # Send motor test command
-    # MAV_CMD_DO_MOTOR_TEST: param1=motor number (0=all), param2=throttle type (1=pct), param3=throttle (40%), param4=timeout (3s)
     master.mav.command_long_send(
         master.target_system, master.target_component,
         mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST,
@@ -832,7 +827,7 @@ def run_motor_test(master):
     )
     
     logger.info('Motor test command sent — motors spinning...')
-    time.sleep(3.5)  # Wait a bit longer than 3s
+    time.sleep(3.5)
     logger.info('Motor test complete')
  
  
@@ -855,8 +850,8 @@ def run_main():
  
     # Initilize YOLO
     yolo = sy.SkeletonYolo(
-        confThreshold=confidence_threshold,
-        classes=obstacle_objects if obstacle_objects else None,
+        confThreshold=flight_config.confidence_threshold,
+        classes=flight_config.obstacle_objects if flight_config.obstacle_objects else None,
     )
  
     # Dry Run Mode
@@ -956,7 +951,7 @@ def run_main():
         v = get_battery_voltage(master)
         if v:
             logger.info('Post-flight battery: %.2f V', v)
-            if v < low_battery_v:
+            if v < flight_config.low_battery_voltage:
                 logger.warning('LOW BATTERY: %.2f V — charge before next flight', v)
  
     except KeyboardInterrupt:
