@@ -256,32 +256,42 @@ def init_mavlink(dry_run=False):
  
 def init_compass(dry_run=False):
     """
-    HMC5883L on the DY-880 uses I2C address 0x1E (NOT 0x0D which is QMC5883L).
-    Wire: GPS SDA → Pi GPIO 2 (SDA1), GPS SCL → Pi GPIO 3 (SCL1).
-    """
-    if dry_run or smbus is None:
-        logger.info('Compass: skipped')
-        return None
-    try:
-        bus = smbus.SMBus(1)
-        bus.write_byte_data(HMC5883L_ADDR, 0x00, 0x70)
-        bus.write_byte_data(HMC5883L_ADDR, 0x01, 0x20)
-        bus.write_byte_data(HMC5883L_ADDR, 0x02, 0x00)
-        time.sleep(0.1)
-        logger.info('Compass HMC5883L: OK (addr=0x1E)')
-        return bus
-    except Exception as exc:
-        logger.warning('Compass init failed: %s', exc)
-        return None
- 
- 
-def read_compass(bus):
-    """
-    HMC5883L register order: X MSB, X LSB, Z MSB, Z LSB, Y MSB, Y LSB.
-    (Note: register order is X, Z, Y — not X, Y, Z. This is per the datasheet.)
+    Compass (HMC5883L on DY-880) is wired to the FC's I2C bus, not the Pi's
+    GPIO pins. ArduPilot reads it directly and broadcasts the fused heading via
+    MAVLink (VFR_HUD.heading). We return the sentinel string 'mavlink' so that
+    read_compass() knows to use the MAVLink path instead of smbus.
 
-    Returns magnetic heading corrected for local declination, in degrees [0, 360).
+    If you ever re-wire the compass directly to the Pi's GPIO pins (SDA→GPIO2,
+    SCL→GPIO3) the smbus path in read_compass() will handle it automatically.
     """
+    if dry_run:
+        logger.info('Compass: skipped (dry-run)')
+        return None
+    logger.info('Compass: reading heading from FC via MAVLink VFR_HUD')
+    return 'mavlink'  # sentinel — compass is on the FC's I2C bus
+
+
+def read_compass(bus, master=None):
+    """
+    Return heading in degrees [0, 360).
+
+    MAVLink path (compass on FC): bus == 'mavlink'
+        Reads VFR_HUD.heading which ArduPilot already fuses with declination.
+
+    Legacy smbus path (compass wired directly to Pi GPIO): bus is an SMBus obj
+        Reads HMC5883L registers directly and applies MAGNETIC_DECLINATION.
+    """
+    if bus == 'mavlink' or (bus is None and master is not None):
+        if master is None:
+            raise RuntimeError('MAVLink master required for compass read via FC')
+        msg = master.recv_match(type='VFR_HUD', blocking=True, timeout=1)
+        if msg is None:
+            raise RuntimeError('No VFR_HUD message received from FC')
+        return float(msg.heading)   # ArduPilot already applies declination
+
+    # Legacy direct smbus path
+    if bus is None:
+        raise RuntimeError('No compass available')
     data = bus.read_i2c_block_data(HMC5883L_ADDR, 0x03, 6)
     x = (data[0] << 8) | data[1]
     z = (data[2] << 8) | data[3]
@@ -289,7 +299,6 @@ def read_compass(bus):
     if x > 32767: x -= 65536
     if y > 32767: y -= 65536
     if z > 32767: z -= 65536
-
     heading  = math.degrees(math.atan2(y, x))
     heading += MAGNETIC_DECLINATION
     heading %= 360.0
@@ -520,7 +529,7 @@ def navigate_to_destination(master, bus, picam2, yolo, cfg: FlightConfig,
         bearing = math.degrees(math.atan2(dlon, dlat))
         if bus:
             try:
-                current_heading = read_compass(bus)
+                current_heading = read_compass(bus, master=master)
             except Exception:
                 current_heading = bearing
         else:
@@ -601,23 +610,15 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
     else:
         logger.warning('[TEST] MAVLink not available')
 
-    # Compass
+    # Compass (heading read from FC via MAVLink VFR_HUD)
     if bus:
         try:
-            hdg = read_compass(bus)
+            hdg = read_compass(bus, master=master)
             logger.info('[TEST] Compass heading: %.1f°', hdg)
-            devices = []
-            for addr in range(0x03, 0x78):
-                try:
-                    bus.read_byte(addr)
-                    devices.append(hex(addr))
-                except Exception:
-                    pass
-            logger.info('[TEST] I2C devices found: %s', ', '.join(devices))
         except Exception as exc:
             logger.warning('[TEST] Compass read failed: %s', exc)
     else:
-        logger.warning('[TEST] Compass (smbus) not available')
+        logger.warning('[TEST] Compass not available (MAVLink not connected)')
 
     if comprehensive:
         # System resources
@@ -769,7 +770,7 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
 
             if bus:
                 try:
-                    hdg = read_compass(bus)
+                    hdg = read_compass(bus, master=master)
                     if frame_count % 20 == 0:
                         logger.info('[TEST] Compass: %.1f°', hdg)
                 except Exception:
@@ -807,12 +808,28 @@ def run_motor_test(master):
         return
 
     logger.info('Waiting for heartbeat to lock target ID...')
-    master.wait_heartbeat()
+    hb = master.recv_match(type='HEARTBEAT', blocking=True, timeout=10)
+    if not hb:
+        logger.error('Motor test aborted: no heartbeat from flight controller within 10 s.')
+        logger.error('Check USB/UART wiring and that ArduPilot is running on the FC.')
+        return
     logger.info('Target locked: sys=%s comp=%s', master.target_system, master.target_component)
     logger.info('=' * 50)
     logger.info('MOTOR TEST — spinning each motor at 40%% for 3 seconds')
     logger.info('ENSURE PROPS ARE REMOVED AND DRONE IS ARMED!')
     logger.info('=' * 50)
+
+    # Arm the drone in STABILIZE mode so motor test commands are accepted
+    logger.info('Setting STABILIZE mode and arming...')
+    set_mode(master, MODE_STABILIZE)
+    time.sleep(0.5)
+    armed = arm_drone(master, force=True)
+    if not armed:
+        logger.error('Motor test aborted: could not arm the drone.')
+        logger.error('Check: props removed, safety switch, pre-arm checks in Mission Planner.')
+        return
+    logger.info('Drone armed — starting motor test in 2 seconds...')
+    time.sleep(2)
 
     NUM_MOTORS = 4  # Change to 6 for hexa, 8 for octa, etc.
 
@@ -832,6 +849,8 @@ def run_motor_test(master):
         logger.info('Motor %d done', motor_instance)
 
     logger.info('Motor test complete — all %d motors tested', NUM_MOTORS)
+    logger.info('Disarming...')
+    disarm_drone(master)
  
  
 # ---------------------------------------------------------------------------

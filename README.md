@@ -14,7 +14,11 @@ This project runs a web enabled companion computer controller that launches and 
 
 ## Firmware
 - ArduPilot Copter stable firmware for SpeedyBee F405 V5
-- Companion computer mode via SERIAL6 on UART6
+- Companion computer mode via SERIAL2 on UART2
+
+## Connections
+- GPS/Compass SDA, SCL, VCC, GND, RTX & TXD Into Flight Controller G, T4, R4, CL, DA, 4V5
+-Flightcontroller R2, T2 & G into Pi Pin's 14,15 & GND
 
 ## Requirements
 - Python libraries: `opencv-python`, `numpy`, `picamera2`, `pymavlink`, `Flask`, `ultralytics`, `torch`, `smbus2`
