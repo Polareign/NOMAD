@@ -220,14 +220,12 @@
 
         .dest-card .del-btn:hover { color: var(--danger); }
 
-        /* ── Main area ───────────────────────────────────── */
         .main {
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        /* ── Status strip ────────────────────────────────── */
         .status-strip {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -246,7 +244,6 @@
         .stat .val.airborne { color: var(--safe); }
         .stat .val.estop    { color: var(--danger); }
 
-        /* ── Log ─────────────────────────────────────────── */
         .log-area {
             flex: 1;
             overflow-y: auto;
@@ -264,7 +261,6 @@
         .log-entry.ok   .msg { color: var(--safe); }
         .log-entry.info .msg { color: var(--accent); }
 
-        /* ── Control bar ─────────────────────────────────── */
         .control-bar {
             border-top: 1px solid var(--border);
             padding: 14px 16px;
@@ -351,8 +347,6 @@
 
         .clear-estop-btn:hover { background: var(--warn); color: var(--bg); }
 
-
-        /* ── Hover button ────────────────────────────────── */
         .hover-btn {
             padding: 10px 20px;
             background: transparent;
@@ -377,7 +371,6 @@
             animation: hover-pulse 1.5s ease-in-out infinite;
         }
 
-        /* ── Land (Turn Off) button ──────────────────────── */
         .land-btn {
             padding: 10px 20px;
             background: transparent;
@@ -398,7 +391,6 @@
             box-shadow: 0 0 16px rgba(255,107,53,0.35);
         }
 
-        /* ── Countdown overlay ───────────────────────────── */
         #hoverCountdown {
             display: none;
             position: fixed;
@@ -455,7 +447,6 @@
             100% { transform: scale(1);   opacity: 1; }
         }
 
-        /* ── Heartbeat indicator ─────────────────────────── */
         .hb-bar {
             height: 2px;
             background: var(--border);
@@ -478,7 +469,6 @@
             to   { left: 100%; }
         }
 
-        /* ── Toast ───────────────────────────────────────── */
         .toast {
             position: fixed;
             bottom: 20px; left: 50%;
@@ -501,12 +491,10 @@
         .toast.err  { border-color: var(--danger);  color: var(--danger); }
         .toast.warn { border-color: var(--warn);    color: var(--warn); }
 
-        /* ── Scrollbar ───────────────────────────────────── */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
 
-        /* ── Mobile ──────────────────────────────────────── */
         @media (max-width: 700px) {
             .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
             .sidebar { height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
@@ -528,7 +516,6 @@
 
 <div class="layout">
 
-    <!-- ── Sidebar ── -->
     <aside class="sidebar">
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('fly', this)">FLY</button>
@@ -536,13 +523,11 @@
             <button class="tab-btn" onclick="switchTab('params', this)">PARAMS</button>
         </div>
 
-        <!-- FLY tab -->
         <div id="tab-fly" class="tab-panel active">
             <div class="section-label">Select Destination</div>
             <div id="dest-select-list"></div>
         </div>
 
-        <!-- DESTS tab -->
         <div id="tab-dests" class="tab-panel">
             <div class="section-label">Saved Destinations</div>
             <div id="dest-manage-list"></div>
@@ -563,7 +548,6 @@
             <button class="btn btn-ghost" onclick="useCurrentLocation()" style="margin-top:6px">USE MY GPS</button>
         </div>
 
-        <!-- PARAMS tab -->
         <div id="tab-params" class="tab-panel">
             <div class="section-label">Flight Parameters</div>
             <div class="field"><label>TAKEOFF ALT (m)</label><input type="number" id="pAlt"   step="0.5"></div>
@@ -576,7 +560,6 @@
         </div>
     </aside>
 
-    <!-- ── Main ── -->
     <main class="main">
         <div class="hb-bar"><div class="pulse" id="hbPulse"></div></div>
 
@@ -629,7 +612,6 @@
 
 </div>
 
-<!-- ── Hover countdown overlay ── -->
 <div id="hoverCountdown">
     <div class="cd-label">Engaging Hover Mode</div>
     <div class="cd-number" id="cdNumber">5</div>
@@ -640,14 +622,12 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── State ─────────────────────────────────────────────────────────────────
 let selectedDest   = null;
 let droneMode      = 'idle';
 let estopActive    = false;
 let heartbeatTimer = null;
 let statusTimer    = null;
 
-// ── Logging ───────────────────────────────────────────────────────────────
 function log(msg, type = '') {
     const area = document.getElementById('logArea');
     const now  = new Date().toTimeString().slice(0, 8);
@@ -658,7 +638,6 @@ function log(msg, type = '') {
     area.scrollTop = area.scrollHeight;
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────
 function toast(msg, type = '') {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -666,7 +645,6 @@ function toast(msg, type = '') {
     setTimeout(() => t.className = `toast ${type}`, 2500);
 }
 
-// ── Tab switching ─────────────────────────────────────────────────────────
 function switchTab(id, btn) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -674,14 +652,12 @@ function switchTab(id, btn) {
     btn.classList.add('active');
 }
 
-// ── Status polling ────────────────────────────────────────────────────────
 async function pollStatus() {
     try {
         const r = await fetch('/api/status');
         if (!r.ok) throw new Error('status ' + r.status);
         const s = await r.json();
 
-        // Connection pill
         const pill = document.getElementById('connPill');
         pill.classList.add('online');
         document.getElementById('connLabel').textContent = 'ONLINE';
@@ -689,7 +665,6 @@ async function pollStatus() {
         droneMode   = s.drone_mode;
         estopActive = s.emergency_stop;
 
-        // Status strip
         const modeEl = document.getElementById('sMode');
         modeEl.textContent = s.drone_mode.toUpperCase();
         modeEl.className = 'val ' + (s.drone_mode === 'airborne' ? 'airborne'
@@ -702,7 +677,6 @@ async function pollStatus() {
         estopEl.textContent = s.emergency_stop ? 'ACTIVE' : 'CLEAR';
         estopEl.className   = 'val' + (s.emergency_stop ? ' estop' : '');
 
-        // Heartbeat display
         const hbEl = document.getElementById('sHb');
         if (s.last_heartbeat) {
             const age = Math.round(Date.now() / 1000 - s.last_heartbeat);
@@ -722,7 +696,6 @@ async function pollStatus() {
     }
 }
 
-// ── Heartbeat sender ──────────────────────────────────────────────────────
 async function sendHeartbeat() {
     if (droneMode !== 'airborne' && droneMode !== 'preflight') return;
     try {
@@ -735,7 +708,6 @@ async function sendHeartbeat() {
     }
 }
 
-// ── Destination selection ─────────────────────────────────────────────────
 function selectDest(id) {
     selectedDest = id;
     document.getElementById('selectedDestDisplay').textContent = id;
@@ -759,7 +731,6 @@ function updateEstopControls() {
     updateHoverControls();
 }
 
-// ── Launch ────────────────────────────────────────────────────────────────
 async function confirmLaunch() {
     if (!selectedDest) { toast('Select a destination first', 'warn'); return; }
     if (estopActive)   { toast('Clear E-STOP before launching', 'err'); return; }
@@ -787,7 +758,6 @@ async function confirmLaunch() {
     }
 }
 
-// ── Emergency Stop ────────────────────────────────────────────────────────
 async function confirmEstop() {
     if (!confirm('EMERGENCY STOP?\n\nDrone will land immediately.')) return;
     try {
@@ -823,7 +793,6 @@ async function clearEstop() {
     }
 }
 
-// ── Destinations (manage tab) ─────────────────────────────────────────────
 async function loadDestinations() {
     try {
         const r    = await fetch('/api/destinations');
@@ -846,7 +815,6 @@ async function loadDestinations() {
             flyList.appendChild(card);
         }
 
-        // Manage tab — with delete buttons
         const manageList = document.getElementById('dest-manage-list');
         manageList.innerHTML = '';
         for (const [id, d] of Object.entries(data)) {
@@ -903,7 +871,6 @@ async function deleteDest(id) {
     } catch (e) { toast('Request failed', 'err'); }
 }
 
-// ── Home ──────────────────────────────────────────────────────────────────
 async function loadHome() {
     try {
         const r = await fetch('/api/home');
@@ -938,7 +905,6 @@ function useCurrentLocation() {
     }, err => toast('GPS error: ' + err.message, 'err'));
 }
 
-// ── Params ────────────────────────────────────────────────────────────────
 async function loadParams() {
     try {
         const r = await fetch('/api/flight-parameters');
@@ -973,8 +939,6 @@ async function saveParams() {
     } catch(e) { toast('Request failed', 'err'); }
 }
 
-
-// ── Hover state ───────────────────────────────────────────────────────────
 let hoverActive    = false;
 let cdTimer        = null;
 let cdCancelled    = false;
@@ -997,15 +961,12 @@ function updateHoverControls() {
     }
 }
 
-// Poll hover status from server every 2 s (piggybacked on status poll cycle)
 async function pollHoverStatus() {
     try {
         const r = await fetch('/api/hover/status');
         if (!r.ok) return;
         const s = await r.json();
         hoverActive = s.active;
-
-        // Sync countdown overlay with server-side countdown (e.g. from CLI)
         if (s.countdown !== null && s.countdown !== undefined && cdTimer === null) {
             showCountdownOverlay(s.countdown);
         }
@@ -1030,7 +991,6 @@ function showCountdownOverlay(startNum) {
             return;
         }
         count--;
-        // Force re-trigger animation
         numEl.style.animation = 'none';
         void numEl.offsetWidth;
         numEl.style.animation = 'cd-pop 0.4s ease-out';
@@ -1098,25 +1058,20 @@ async function confirmLand() {
 
 function cancelHoverCountdown() {
     cdCancelled = true;
-    // Tell the server to abort (best-effort — it may already have engaged)
     fetch('/api/hover/land', { method: 'POST' }).catch(() => {});
     log('Hover countdown cancelled', 'warn');
     toast('Hover cancelled', 'warn');
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
     log('NOMAD GCS loaded', 'info');
     loadDestinations();
     loadHome();
     loadParams();
-
-    // Poll status every 2s
     pollStatus();
     statusTimer = setInterval(() => { pollStatus(); pollHoverStatus(); }, 2000);
     pollHoverStatus();
 
-    // Send heartbeat every 5s (only when drone is preflight/airborne)
     heartbeatTimer = setInterval(sendHeartbeat, 5000);
 });
 </script>

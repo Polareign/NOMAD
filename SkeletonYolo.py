@@ -18,7 +18,7 @@ class SkeletonYolo:
         self.confThreshold = confThreshold
         self.model = None
         self._all_classes    = self._get_default_coco_classes()
-        self._filter_classes = classes  # names requested by caller
+        self._filter_classes = classes
 
         try:
             self.model = YOLO('yolo11n.pt')
@@ -28,8 +28,6 @@ class SkeletonYolo:
             logger.error('Failed to load YOLO11n model: %s', exc)
             self.model = None
 
-        # Pre-compute numeric class IDs to pass to YOLO for faster inference.
-        # YOLO accepts a list of integer class IDs via the `classes=` arg.
         if classes:
             lower_filter = {c.lower() for c in classes}
             self._class_ids = [
@@ -37,7 +35,7 @@ class SkeletonYolo:
                 if name.lower() in lower_filter
             ]
         else:
-            self._class_ids = None  # no filter → detect everything
+            self._class_ids = None
 
     @staticmethod
     def _get_default_coco_classes():
@@ -69,26 +67,18 @@ class SkeletonYolo:
             return []
 
         try:
-            # Run inference — restrict to obstacle classes when a filter is set
             results = self.model(img, verbose=False,
                                  classes=self._class_ids if self._class_ids else None)
             
             detected_objects = []
-            
-            # Process detections
             for result in results:
                 if result.boxes is not None and len(result.boxes) > 0:
                     for box in result.boxes:
                         cls_id = int(box.cls[0])
                         conf = float(box.conf[0])
-                        
-                        # Filter by confidence threshold
                         if conf >= self.confThreshold:
-                            # Get class name
                             class_name = result.names.get(cls_id, f'class_{cls_id}')
                             detected_objects.append(class_name)
-                            
-                            # Draw bounding box and label on image
                             x1, y1, x2, y2 = map(int, box.xyxy[0])
                             cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 2)
                             label = f'{class_name} {int(conf * 100)}%'

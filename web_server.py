@@ -7,23 +7,16 @@ import threading
 app = Flask(__name__)
 
 CONFIG_FILE = 'config.json'
-
-# --- Locks ---
-# Protects all multi-field reads/writes on drone_state
 _state_lock = threading.Lock()
-# Protects all config.json reads/writes
 _config_lock = threading.Lock()
 
 drone_state = {
     'emergency_stop':    False,
     'launch_authorized': False,
     'destination':       '',
-    'mode':              'idle',   # idle | preflight | airborne | test | dry_run
+    'mode':              'idle',
     'last_heartbeat':    None,
 }
-
-
-# --- Thread-safe state helpers ---
 
 def get_state(*keys):
     """Read one or more state fields atomically."""
@@ -38,16 +31,12 @@ def set_state(**kwargs):
     with _state_lock:
         drone_state.update(kwargs)
 
-
-# --- Config I/O (file-locked + atomic writes) ---
-
 def load_config():
     with _config_lock:
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, 'r') as f:
                 return json.load(f)
         return {}
-
 
 def save_config(config):
     """Write atomically: write to .tmp then rename so a crash never corrupts the file."""
@@ -56,20 +45,15 @@ def save_config(config):
         with open(tmp, 'w') as f:
             json.dump(config, f, indent=2)
         os.replace(tmp, CONFIG_FILE)
- 
- 
-# Pages
+
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
- 
- 
-# Destinations API
+
 @app.route('/api/destinations', methods=['GET'])
 def get_destinations():
     return jsonify(load_config().get('destinations', {}))
- 
- 
+
 @app.route('/api/destinations', methods=['POST'])
 def create_destination():
     data = request.json or {}
@@ -85,8 +69,7 @@ def create_destination():
     }
     save_config(config)
     return jsonify({'success': True, 'message': f'Destination {dest_id} saved'}), 201
- 
- 
+
 @app.route('/api/destinations/<dest_id>', methods=['DELETE'])
 def delete_destination(dest_id):
     if dest_id == 'home':
@@ -97,13 +80,11 @@ def delete_destination(dest_id):
         save_config(config)
         return jsonify({'success': True})
     return jsonify({'error': 'Not found'}), 404
- 
- 
+
 @app.route('/api/home', methods=['GET'])
 def get_home():
     return jsonify(load_config().get('destinations', {}).get('home', {}))
- 
- 
+
 @app.route('/api/home', methods=['POST'])
 def update_home():
     data = request.json or {}
@@ -116,20 +97,17 @@ def update_home():
     }
     save_config(config)
     return jsonify({'success': True}), 201
- 
- 
-# Flight Parameters API
+
 @app.route('/api/flight-parameters', methods=['GET'])
 def get_flight_parameters():
     return jsonify(load_config().get('flight_parameters', {}))
- 
- 
+
 @app.route('/api/flight-parameters', methods=['POST'])
 def update_flight_parameters():
     data   = request.json or {}
     config = load_config()
     params = config.setdefault('flight_parameters', {})
- 
+
     limits = {
         'takeoff_altitude':   (1.0, 50.0),
         'flight_speed':       (0.1, 10.0),
@@ -146,32 +124,29 @@ def update_flight_parameters():
                 errors.append(f'{key} must be between {lo} and {hi}')
             else:
                 params[key] = val
- 
+
     if errors:
         return jsonify({'error': '; '.join(errors)}), 400
- 
+
     save_config(config)
     return jsonify({'success': True}), 201
- 
- 
-# Control API
+
 @app.route('/api/launch', methods=['POST'])
 def launch():
     """Authorize the drone to arm and take off. Called from the web UI launch button."""
     data    = request.json or {}
     dest_id = data.get('destination', '').upper()
- 
+
     config = load_config()
     if dest_id not in config.get('destinations', {}):
         return jsonify({'error': f'Unknown destination: {dest_id}'}), 400
- 
+
     if get_state('emergency_stop'):
         return jsonify({'error': 'Emergency stop is active — clear it before launching'}), 403
- 
+
     set_state(destination=dest_id, launch_authorized=True, last_heartbeat=time.time())
     return jsonify({'success': True, 'message': f'Launch authorized for destination {dest_id}'})
- 
- 
+
 @app.route('/api/set-destination', methods=['POST'])
 def set_destination():
     """Change destination mid-flight (future use)."""
@@ -182,9 +157,7 @@ def set_destination():
         return jsonify({'error': 'Unknown destination'}), 400
     set_state(destination=dest_id)
     return jsonify({'success': True})
- 
- 
-# Safety API
+
 @app.route('/api/emergency-stop', methods=['POST'])
 def api_emergency_stop():
     """
@@ -205,12 +178,7 @@ def clear_emergency_stop():
     """Clear the emergency stop flag so a new flight can be launched."""
     set_state(emergency_stop=False)
     return jsonify({'success': True, 'message': 'Emergency stop cleared'})
- 
 
-# BUG 3 FIX: Use set_state() so the write goes through _state_lock,
-# consistent with every other endpoint. The old code wrote to drone_state
-# directly, bypassing the lock and creating a race condition with readers
-# in drone_control.py (check_heartbeat_timeout) and get_status below.
 @app.route('/api/heartbeat', methods=['POST'])
 def heartbeat():
     """
@@ -219,11 +187,7 @@ def heartbeat():
     """
     set_state(last_heartbeat=time.time())
     return jsonify({'success': True, 'timestamp': get_state('last_heartbeat')})
- 
 
-# BUG 4 FIX: Use get_state() for all reads so they go through _state_lock.
-# The old code called drone_state.get() directly, which is a race condition
-# when drone_control.py is writing via set_state() on another thread.
 @app.route('/api/status', methods=['GET'])
 def get_status():
     config = load_config()
@@ -238,8 +202,7 @@ def get_status():
         'last_heartbeat':      state.get('last_heartbeat'),
         'config_loaded':       True,
     })
- 
- 
+
 @app.route('/api/autostart', methods=['POST'])
 def set_autostart():
     """Enable/disable auto-start on boot."""
@@ -249,18 +212,14 @@ def set_autostart():
     config['autostart_enabled'] = enabled
     save_config(config)
     return jsonify({'success': True, 'autostart_enabled': enabled})
- 
- 
-# Server Runner
+
 def run_server(host='0.0.0.0', port=5000, debug=False):
     app.run(host=host, port=port, debug=debug, use_reloader=False)
- 
- 
+
 def start_server_background(host='0.0.0.0', port=5000):
     t = threading.Thread(target=run_server, args=(host, port, False), daemon=True)
     t.start()
     return t
- 
- 
+
 if __name__ == '__main__':
     run_server(debug=True)

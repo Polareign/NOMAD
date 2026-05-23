@@ -31,7 +31,6 @@ import time
 import threading
 import signal
 
-# ── Optional hardware imports (same pattern as drone_control.py) ──────────────
 try:
     from pymavlink import mavutil
 except ImportError:
@@ -45,19 +44,17 @@ except ImportError:
     def get_state(key): return None
     def set_state(**kw): pass
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 SERIAL_PORT   = '/dev/serial0'
 BAUD_RATE     = 57600
 
 MODE_STABILIZE = 0
 MODE_GUIDED    = 4
-MODE_LOITER    = 5   # ArduPilot LOITER — holds GPS position + altitude
+MODE_LOITER    = 5 
 MODE_LAND      = 9
 
 HOVER_CHECK_INTERVAL = 0.5   # seconds between state checks while hovering
 LAND_SETTLE_TIME     = 6     # seconds to wait after issuing LAND before disarming
 
-# ── Logging ───────────────────────────────────────────────────────────────────
 logger = logging.getLogger('nomad.hover')
 logger.setLevel(logging.INFO)
 _sh = logging.StreamHandler(sys.stdout)
@@ -67,11 +64,10 @@ _fh = logging.FileHandler('nomad_flight.log')
 _fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s [hover]: %(message)s'))
 logger.addHandler(_fh)
 
-# ── Shared hover state (read by web_server routes added below) ────────────────
 _hover_state = {
-    'active':     False,   # True while LOITER is engaged
-    'countdown':  None,    # int seconds remaining in pre-hover countdown, or None
-    'landing':    False,   # True once land sequence has started
+    'active':     False,
+    'countdown':  None,
+    'landing':    False,
 }
 _hover_lock = threading.Lock()
 
@@ -83,8 +79,6 @@ def _hget(key):
     with _hover_lock:
         return _hover_state.get(key)
 
-
-# ── MAVLink helpers ───────────────────────────────────────────────────────────
 def connect_mavlink(dry_run=False):
     if dry_run or mavutil is None:
         logger.info('MAVLink: skipped (dry-run or not installed)')
@@ -140,8 +134,6 @@ def disarm_drone(master):
         0, 0, 0, 0, 0, 0, 0)
     logger.info('Drone DISARMED')
 
-
-# ── Core hover/land actions ───────────────────────────────────────────────────
 def activate_hover(master):
     """
     Engage LOITER mode so ArduPilot holds the drone's current GPS position
@@ -162,7 +154,7 @@ def deactivate_hover_land(master):
     ArduPilot LAND mode descends and auto-disarms on touchdown.
     """
     if _hget('landing'):
-        return   # already landing
+        return
     logger.info('Deactivating hover — initiating LAND sequence…')
     _hset(active=False, landing=True)
     set_mode(master, MODE_LAND, 'LAND')
@@ -187,8 +179,6 @@ def hover_with_countdown(master, countdown_seconds=5):
     _hset(countdown=None)
     activate_hover(master)
 
-
-# ── Blocking hover loop (used by standalone CLI) ──────────────────────────────
 def run_hover_loop(master, land_after=None):
     """
     Block until:
@@ -208,19 +198,16 @@ def run_hover_loop(master, land_after=None):
     signal.signal(signal.SIGINT, _sigint)
 
     while True:
-        # Check for timed auto-land
         if land_after is not None and (time.time() - start) >= land_after:
             logger.info('land_after=%d reached — landing.', land_after)
             deactivate_hover_land(master)
             break
 
-        # Respect emergency stop from web server
         if get_state('emergency_stop'):
             logger.critical('Emergency stop detected — landing immediately.')
             deactivate_hover_land(master)
             break
 
-        # Another process may have switched mode away (e.g. drone_control resuming)
         current_mode = get_state('mode')
         if current_mode not in (None, 'hover'):
             logger.info('Mode changed to %r externally — exiting hover loop.', current_mode)
@@ -228,8 +215,6 @@ def run_hover_loop(master, land_after=None):
 
         time.sleep(HOVER_CHECK_INTERVAL)
 
-
-# ── Web-server API extensions ─────────────────────────────────────────────────
 def register_hover_routes(app, master_ref):
     """
     Add /api/hover and /api/hover/land routes to the existing Flask app.
@@ -252,8 +237,6 @@ def register_hover_routes(app, master_ref):
         if get_state('emergency_stop'):
             return jsonify({'error': 'Emergency stop is active'}), 403
 
-        # Run countdown + hover in a background thread so the HTTP response
-        # returns immediately and the countdown ticks in the background.
         t = threading.Thread(
             target=hover_with_countdown,
             args=(master, countdown),
@@ -281,8 +264,6 @@ def register_hover_routes(app, master_ref):
         with _hover_lock:
             return jsonify(dict(_hover_state))
 
-
-# ── CLI ───────────────────────────────────────────────────────────────────────
 def parse_args():
     p = argparse.ArgumentParser(
         description='NOMAD hover mode controller — ArduPilot LOITER',
@@ -310,7 +291,6 @@ def main():
     args   = parse_args()
     master = connect_mavlink(dry_run=args.dry_run)
 
-    # ── Optional web server ───────────────────────────────────────────────────
     if args.web and _web_server_available:
         from web_server import app
         master_ref = [master]
@@ -318,19 +298,16 @@ def main():
         start_server_background('0.0.0.0', args.port)
         logger.info('Web server started on port %d', args.port)
 
-    # ── --land flag: exit hover, descend, done ────────────────────────────────
     if args.land:
-        _hset(active=True)   # pretend we were hovering so deactivate works
+        _hset(active=True)
         deactivate_hover_land(master)
         return
 
-    # ── Normal hover activation ───────────────────────────────────────────────
     if args.no_countdown:
         activate_hover(master)
     else:
         hover_with_countdown(master, countdown_seconds=args.countdown)
 
-    # ── Block until done ──────────────────────────────────────────────────────
     run_hover_loop(master, land_after=args.land_after)
 
 

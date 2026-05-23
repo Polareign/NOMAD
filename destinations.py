@@ -1,4 +1,3 @@
-# Define drone flight destinations
 # Format: 'name': (latitude, longitude)
 
 DESTINATIONS = {

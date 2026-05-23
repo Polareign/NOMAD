@@ -60,10 +60,8 @@ OBS_YAW_TIMEOUT    = 5.0   # seconds to yaw before trying to advance anyway
 OBS_SIDESTEP_TIME  = 2.0   # seconds of sideways strafe to clear an obstacle
 OBS_MIN_CLEAR_SECS = 1.0   # consecutive clear seconds required before resuming forward
 
-
-# ---------------------------------------------------------------------------
 # Flight config dataclass
-# ---------------------------------------------------------------------------
+
 @dataclass
 class FlightConfig:
     takeoff_altitude:     float = 5.0
@@ -79,10 +77,6 @@ class FlightConfig:
         if self.obstacle_objects is None:
             self.obstacle_objects = []
 
-
-# ---------------------------------------------------------------------------
-# Logger  (must be defined before ObstacleAvoider so _transition can use it)
-# ---------------------------------------------------------------------------
 logger = logging.getLogger('nomad')
 logger.setLevel(logging.INFO)
 _sh = logging.StreamHandler(sys.stdout)
@@ -92,10 +86,8 @@ _fh = logging.FileHandler('nomad_flight.log')
 _fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
 logger.addHandler(_fh)
 
-
-# ---------------------------------------------------------------------------
 # Obstacle avoidance state machine
-# ---------------------------------------------------------------------------
+
 class ObstacleAvoider:
     FORWARD      = 'forward'
     YAWING       = 'yawing'
@@ -156,10 +148,8 @@ class ObstacleAvoider:
             else:
                 self._transition(self.FORWARD)
 
-
-# ---------------------------------------------------------------------------
 # Args
-# ---------------------------------------------------------------------------
+
 def parse_args():
     p = argparse.ArgumentParser(description='NOMAD drone control — ArduPilot')
     p.add_argument('--dry-run',            action='store_true', help='No hardware, web server + config only')
@@ -171,11 +161,9 @@ def parse_args():
     p.add_argument('--port',               type=int, default=DEFAULT_SERVER_PORT)
     p.add_argument('--config',             default=DEFAULT_CONFIG_FILE)
     return p.parse_args()
- 
- 
-# ---------------------------------------------------------------------------
+
 # Config
-# ---------------------------------------------------------------------------
+
 def load_config(config_file=DEFAULT_CONFIG_FILE):
     if os.path.exists(config_file):
         try:
@@ -214,10 +202,8 @@ def build_flight_config(config_data, destinations):
         home_pos             = (home_dest[0], home_dest[1]) if home_dest else None,
     )
 
-
-# ---------------------------------------------------------------------------
 # Hardware initialisation
-# ---------------------------------------------------------------------------
+
 def init_camera(dry_run=False):
     if dry_run or Picamera2 is None:
         logger.info('Camera: skipped (%s)', 'dry-run' if dry_run else 'not installed')
@@ -268,7 +254,7 @@ def init_compass(dry_run=False):
         logger.info('Compass: skipped (dry-run)')
         return None
     logger.info('Compass: reading heading from FC via MAVLink VFR_HUD')
-    return 'mavlink'  # sentinel — compass is on the FC's I2C bus
+    return 'mavlink'
 
 
 def read_compass(bus, master=None):
@@ -287,9 +273,8 @@ def read_compass(bus, master=None):
         msg = master.recv_match(type='VFR_HUD', blocking=True, timeout=1)
         if msg is None:
             raise RuntimeError('No VFR_HUD message received from FC')
-        return float(msg.heading)   # ArduPilot already applies declination
+        return float(msg.heading)
 
-    # Legacy direct smbus path
     if bus is None:
         raise RuntimeError('No compass available')
     data = bus.read_i2c_block_data(HMC5883L_ADDR, 0x03, 6)
@@ -303,11 +288,9 @@ def read_compass(bus, master=None):
     heading += MAGNETIC_DECLINATION
     heading %= 360.0
     return heading
- 
- 
-# ---------------------------------------------------------------------------
+
 # ArduPilot flight commands
-# ---------------------------------------------------------------------------
+
 def set_mode(master, mode_id):
     if master is None:
         return
@@ -316,7 +299,6 @@ def set_mode(master, mode_id):
         mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
         mode_id)
     logger.info('Flight mode set to %d', mode_id)
- 
  
 def arm_drone(master, force=False):
     if master is None:
@@ -335,7 +317,6 @@ def arm_drone(master, force=False):
     logger.warning('Arm confirmation not received')
     return False
  
- 
 def disarm_drone(master):
     if master is None:
         return
@@ -344,7 +325,6 @@ def disarm_drone(master):
         mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0,
         0, 0, 0, 0, 0, 0, 0)
     logger.info('Drone DISARMED')
- 
  
 def takeoff(master, altitude):
     if master is None:
@@ -355,13 +335,11 @@ def takeoff(master, altitude):
         0, 0, 0, 0, 0, 0, altitude)
     logger.info('Takeoff to %.1f m', altitude)
  
- 
 def land(master):
     if master is None:
         return
     set_mode(master, MODE_LAND)
     logger.info('LAND mode activated')
- 
  
 def emergency_stop(master):
     """
@@ -380,12 +358,6 @@ def emergency_stop(master):
     set_mode(master, MODE_LAND)
     set_mode(master, MODE_LAND)
 
-
-# BUG 10 FIX: Removed the dead set_velocity() function (MAV_FRAME_LOCAL_NED).
-# It was never called anywhere — all flight logic uses set_velocity_body()
-# (MAV_FRAME_BODY_NED). Its presence was misleading because its docstring
-# incorrectly described it as a body-frame command. set_velocity_body() below
-# is the only velocity setter in the codebase.
 def set_velocity_body(master, vx, vy, vz, yaw_rate):
     """
     Send velocity setpoint in BODY frame (forward/right/down).
@@ -433,11 +405,9 @@ def get_battery_voltage(master):
     if not msg:
         return None
     return msg.voltage_battery / 1000.0
- 
- 
-# ---------------------------------------------------------------------------
+
 # Safety checks
-# ---------------------------------------------------------------------------
+
 def is_obstacle_detected(detected_list, obstacle_objects):
     dl = [o.lower() for o in detected_list]
     ol = [o.lower() for o in obstacle_objects]
@@ -459,10 +429,6 @@ def check_geofence(current_pos, home_pos, max_radius_m=500):
         return True
     return False
 
-
-# BUG 2 FIX: Use get_state() instead of accessing drone_state directly.
-# drone_state lives in web_server.py and is not imported here; only the
-# thread-safe get_state/set_state helpers are imported.
 def check_emergency_flag():
     """Check the shared state set by the web server emergency-stop endpoint."""
     return get_state('emergency_stop')
@@ -474,11 +440,9 @@ def check_heartbeat_timeout():
     if last is None:
         return False
     return (time.time() - last) > HEARTBEAT_TIMEOUT
- 
- 
-# ---------------------------------------------------------------------------
+
 # Navigation
-# ---------------------------------------------------------------------------
+
 def navigate_to_destination(master, bus, picam2, yolo, cfg: FlightConfig,
                              target_lat, target_lon, show_preview=False):
     if master is None or picam2 is None:
@@ -493,7 +457,6 @@ def navigate_to_destination(master, bus, picam2, yolo, cfg: FlightConfig,
     )
 
     while True:
-        # Safety checks
         if check_emergency_flag():
             logger.critical('Emergency stop during navigation')
             return 'emergency'
@@ -554,11 +517,9 @@ def navigate_to_destination(master, bus, picam2, yolo, cfg: FlightConfig,
         time.sleep(0.1)
 
     return 'interrupted'
- 
- 
-# ---------------------------------------------------------------------------
+
 # Test mode
-# ---------------------------------------------------------------------------
+
 def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehensive=False):
     """
     Hardware-on test mode — no arming or takeoff.
@@ -610,7 +571,7 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
     else:
         logger.warning('[TEST] MAVLink not available')
 
-    # Compass (heading read from FC via MAVLink VFR_HUD)
+    # Compass
     if bus:
         try:
             hdg = read_compass(bus, master=master)
@@ -621,7 +582,6 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
         logger.warning('[TEST] Compass not available (MAVLink not connected)')
 
     if comprehensive:
-        # System resources
         try:
             if psutil:
                 cpu  = psutil.cpu_percent(interval=1)
@@ -728,7 +688,6 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
             except Exception:
                 logger.warning('[TEST] Could not read parameters')
 
-        # BUG 6 FIX: Corrected URL from /status to /api/status.
         if not args.no_server:
             try:
                 if requests:
@@ -741,7 +700,6 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
             except Exception:
                 logger.warning('[TEST] Web server not responding')
 
-        # Log file size
         try:
             log_size = os.path.getsize('nomad_flight.log') if os.path.exists('nomad_flight.log') else 0
             logger.info('[TEST] Log file size: %.1f KB', log_size / 1024.0)
@@ -784,11 +742,9 @@ def run_test_mode(master, bus, picam2, yolo, cfg: FlightConfig, args, comprehens
         set_state(mode='idle')
         if args.preview and os.environ.get('DISPLAY'):
             cv2.destroyAllWindows()
- 
- 
-# ---------------------------------------------------------------------------
+
 # Motor test
-# ---------------------------------------------------------------------------
+
 def run_motor_test(master):
     """
     Spin all motors at 40% power for 2 seconds.
@@ -837,11 +793,9 @@ def run_motor_test(master):
     time.sleep(2.5)
     logger.info('Motor test complete')
     logger.info('Leaving drone armed for manual disarm or further action.')
- 
- 
-# ---------------------------------------------------------------------------
+
 # Main
-# ---------------------------------------------------------------------------
+
 def run_main():
     args        = parse_args()
     config_data = load_config(args.config)
@@ -850,11 +804,7 @@ def run_main():
         k: (v['latitude'], v['longitude'])
         for k, v in config_data.get('destinations', {}).items()
     }
-
-    # BUG 1 FIX: build flight_config before branching into test mode so
-    # cfg.obstacle_objects is always available. The old code passed the
-    # undefined local name `obstacle_objects` to run_test_mode, causing a
-    # NameError on every test-mode invocation.
+    
     flight_config = build_flight_config(config_data, destinations)
 
     # Start web server
@@ -868,7 +818,7 @@ def run_main():
         classes=flight_config.obstacle_objects if flight_config.obstacle_objects else None,
     )
 
-    # Dry-run mode
+    # DryRun mode
     if args.dry_run:
         logger.info('DRY RUN — no hardware. Web server at http://<pi-ip>:%d', args.port)
         logger.info('Destinations loaded: %s', list(destinations.keys()))
